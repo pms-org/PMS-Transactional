@@ -14,14 +14,17 @@ public class KafkaMessagePublisher {
     private KafkaTemplate<String, Object> kafkaTemplate;
 
     public void publishMessage(String message) {
-        CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send("tejo", message);
+        CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send("transactions-topic", message);
         future.whenComplete((result, ex) -> {
             if (ex != null) {
                 System.out.println("Failed to send message: " + ex.getMessage());
             } else {
-                System.out.println("Message sent successfully to topic: " + result.getRecordMetadata().topic());
+                System.out.println("Message sent successfully to topic: " +
+                        result.getRecordMetadata().topic());
             }
         });
+
+        // kafkaTemplate.send("transactions-topic", message);
 
     }
 
