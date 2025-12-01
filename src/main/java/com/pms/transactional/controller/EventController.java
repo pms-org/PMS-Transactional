@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.pms.transactional.entities.TransactionsEntity;
 import com.pms.transactional.service.KafkaMessagePublisher;
 
 @RestController
@@ -33,9 +34,9 @@ public class EventController {
     // }
 
     @PostMapping("/publish")
-    public ResponseEntity<?> publishMessage(@RequestBody String message) {
+    public ResponseEntity<?> publishMessage(@RequestBody TransactionsEntity transactions) {
         try {
-            publisher.publishMessage(message);
+            publisher.publishMessage(transactions);
             return ResponseEntity.ok("Message published successfully");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -1,13 +1,75 @@
+# services:
+#   transactional-db:
+#     image: postgres:18
+#     container_name: transactional-db
+#     restart: always
+#     environment:
+#       POSTGRES_USER: postgres
+#       POSTGRES_PASSWORD: postgres
+#       POSTGRES_DB: transactional_service
+#     ports:
+#       - "5434:5432"
+#     volumes:
+#       - ./db:/docker-entrypoint-initdb.d
+
+
+
+version: '3.8'
+
 services:
-  transactional-db:
-    image: postgres:18
-    container_name: transactional-db
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: transactional_service
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: kafka
+    container_name: kafka
     ports:
-      - "5434:5432"
-    volumes:
-      - ./db:/docker-entrypoint-initdb.d
+      - "9092:9092"
+      - "29093:29093"
+    environment:
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:9092"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      CLUSTER_ID: "qwertyuiopasdfghjklzxcvbnm123456"
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:9092"
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
+
+  kafka-tools:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: kafka-tools
+    container_name: kafka-tools
+    depends_on:
+      - kafka
+    entrypoint: ["sleep", "infinity"]
+    # You can exec into this container and run kafka CLI tools
+
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:7.6.0
+    hostname: control-center
+    container_name: control-center
+    depends_on:
+      - kafka
+      - schema-registry
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: "kafka:9092"
+      CONTROL_CENTER_SCHEMA_REGISTRY_URLS: "http://schema-registry:8081"
+      CONTROL_CENTER_CONNECT_CLUSTER: ""
+      PORT: 9021

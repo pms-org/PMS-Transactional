@@ -3,11 +3,10 @@ CREATE TABLE trades (
     trade_id UUID PRIMARY KEY,
     portfolio_id UUID NOT NULL,
     symbol VARCHAR(255) NOT NULL,
-    side trade_side NOT NULL,
+    side VARCHAR(10) NOT NULL,
     price_per_stock  NUMERIC(19,4) NOT NULL,
     quantity BIGINT NOT NULL,
     timestamp TIMESTAMP NOT NULL
-
 );
 
 CREATE TABLE transactions (

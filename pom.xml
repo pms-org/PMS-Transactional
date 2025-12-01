@@ -89,6 +89,10 @@
 			<artifactId>spring-kafka-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
+		
+        
+		
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
@@ -99,6 +103,8 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+
+		
 		
 		</dependencies>
 	</dependencyManagement>

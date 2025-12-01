@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.pms.transactional.enums.TradeSide;
 
 import jakarta.persistence.Column;
@@ -32,7 +33,8 @@ public class TransactionsEntity {
     private UUID transactionId;
 
     @ManyToOne
-    @JoinColumn(name = "trade_id", insertable = false, updatable = false)
+    @JoinColumn(name = "trade_id")
+
     private TradesEntity trade;
 
     @Column(name = "buy_price", precision = 19, scale = 4)
