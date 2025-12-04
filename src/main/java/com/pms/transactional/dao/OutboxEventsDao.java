@@ -5,9 +5,9 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.pms.transactional.entities.TradesEntity;
+import com.pms.transactional.entities.OutboxEvents;
 
 @Repository
-public interface TradesDAO extends JpaRepository<TradesEntity, UUID> {
+public interface OutboxEventsDao extends JpaRepository<OutboxEvents, UUID>{
 
 }

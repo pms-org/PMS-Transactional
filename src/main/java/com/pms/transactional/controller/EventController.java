@@ -31,19 +31,6 @@ public class EventController {
     @Autowired
     private KafkaTradeMessagePublisher tradePublisher;
 
-    // @GetMapping("/publish/{message}")
-    // public ResponseEntity<?> publishMessage(@PathVariable String message) {
-    // try {
-
-    // publisher.publishMessage(message);
-
-    // return ResponseEntity.ok("Message published successfully");
-    // } catch (Exception e) {
-    // return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-    // }
-
-    // }
-
     @PostMapping("/transactions/publish")
     public ResponseEntity<?> publishMessage(@RequestBody TransactionDTO transaction) {
         System.out.println("Hello");
@@ -76,10 +63,11 @@ public class EventController {
 
     private TransactionProto convertDTOToProto(TransactionDTO transaction) {
         return TransactionProto.newBuilder()
-                .setTransactionId(transaction.getTransactionId().toString()) // UUID as String
-                .setBuyPrice(transaction.getBuyPrice().toString()) // BigDecimal as double
-                .setSellPrice(transaction.getSellPrice().toString()) // BigDecimal as double
+                .setTransactionId(transaction.getTransactionId().toString())
+                .setBuyPrice(transaction.getBuyPrice().toString()) 
+                .setSellPrice(transaction.getSellPrice().toString())
                 .setRemainingQuantity(transaction.getRemainingQuantity())
+                .setSellQuantity(transaction.getSellQuantity())
                 .setTrade(newBuilder()
                         .setTradeId(transaction.getTrade().getTradeId().toString())
                         .setPortfolioId(transaction.getTrade().getPortfolioId().toString())
