@@ -10,9 +10,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import static com.pms.transactional.TradeProto.newBuilder;
-
 import com.pms.transactional.TradeProto;
+import static com.pms.transactional.TradeProto.newBuilder;
 import com.pms.transactional.TradeSideProto;
 import com.pms.transactional.TransactionProto;
 import com.pms.transactional.dto.TradeDTO;
@@ -64,8 +63,8 @@ public class EventController {
     private TransactionProto convertDTOToProto(TransactionDTO transaction) {
         return TransactionProto.newBuilder()
                 .setTransactionId(transaction.getTransactionId().toString())
-                .setBuyPrice(transaction.getBuyPrice().toString()) 
-                .setSellPrice(transaction.getSellPrice().toString())
+                .setBuyPrice(transaction.getBuyPrice().toPlainString()) 
+                .setSellPrice(transaction.getSellPrice().toPlainString())
                 .setRemainingQuantity(transaction.getRemainingQuantity())
                 .setSellQuantity(transaction.getSellQuantity())
                 .setTrade(newBuilder()
