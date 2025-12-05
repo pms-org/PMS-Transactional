@@ -22,6 +22,9 @@ import com.pms.transactional.mapper.TransactionMapper;
 
 import jakarta.transaction.Transactional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 public class TransactionService {
     @Autowired
@@ -38,11 +41,18 @@ public class TransactionService {
 
     @Autowired
     private OutboxEventsDao outboxEventsDao;
+    Logger logger = LoggerFactory.getLogger(TransactionService.class);
 
     @Transactional
     public void handleBuy(TradeProto trade) {
 
         UUID tradeId = UUID.fromString(trade.getTradeId());
+
+        if (tradesDao.existsById(tradeId)) {
+            logger.error("Trade with ID {} already exists. Rejecting duplicate trade.", tradeId);
+            throw new RuntimeException("Trade with ID " + tradeId + " already exists.");
+        }
+
         TradesEntity buyTrade = new TradesEntity();
         buyTrade.setTradeId(tradeId);
         buyTrade.setPortfolioId(UUID.fromString(trade.getPortfolioId()));
@@ -52,10 +62,10 @@ public class TransactionService {
         buyTrade.setQuantity(trade.getQuantity());
         buyTrade.setTimestamp(LocalDateTime.now());
 
-        buyTrade = tradesDao.save(buyTrade); 
+        buyTrade = tradesDao.save(buyTrade);
 
         TransactionsEntity buyTxn = new TransactionsEntity();
-        buyTxn.setTrade(buyTrade); 
+        buyTxn.setTrade(buyTrade);
         buyTxn.setBuyPrice(null);
         buyTxn.setSellPrice(null);
         buyTxn.setSellQuantity(null);
@@ -79,6 +89,10 @@ public class TransactionService {
 
         UUID tradeId = UUID.fromString(trade.getTradeId());
         TradesEntity sellTrade = new TradesEntity();
+
+        if (tradesDao.existsById(tradeId)) {
+            throw new RuntimeException("Trade with ID " + tradeId + " already exists.");
+        }
         sellTrade.setTradeId(tradeId);
         sellTrade.setPortfolioId(UUID.fromString(trade.getPortfolioId()));
         sellTrade.setSymbol(trade.getSymbol());
@@ -87,9 +101,10 @@ public class TransactionService {
         sellTrade.setQuantity(trade.getQuantity());
         sellTrade.setTimestamp(LocalDateTime.now());
 
-        sellTrade = tradesDao.save(sellTrade); 
+        sellTrade = tradesDao.save(sellTrade);
 
-        List<TransactionsEntity> buyList = transactionDao.findBuyOrdersFIFO(sellTrade.getPortfolioId(), sellTrade.getSymbol(),TradeSide.valueOf("BUY"));
+        List<TransactionsEntity> buyList = transactionDao.findBuyOrdersFIFO(sellTrade.getPortfolioId(),
+                sellTrade.getSymbol(), TradeSide.valueOf("BUY"));
         long sellQty = sellTrade.getQuantity();
         long totalAvailable = buyList.stream()
                 .mapToLong(TransactionsEntity::getRemainingQuantity)
@@ -113,9 +128,9 @@ public class TransactionService {
 
             TransactionsEntity sellTxn = new TransactionsEntity();
 
-            sellTxn.setTrade(sellTrade); 
+            sellTxn.setTrade(sellTrade);
             sellTxn.setBuyPrice(buyTx.getTrade().getPricePerStock());
-            sellTxn.setSellPrice(sellTrade.getPricePerStock()); 
+            sellTxn.setSellPrice(sellTrade.getPricePerStock());
             sellTxn.setSellQuantity(matchedQty);
             sellTxn.setRemainingQuantity(null);
 
