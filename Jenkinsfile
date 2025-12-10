@@ -8,6 +8,7 @@ pipeline {
     }
 
     stages {
+        
 
         stage('Clean Workspace') {
             steps { cleanWs() }
@@ -17,6 +18,13 @@ pipeline {
             steps {
                 git branch: 'main',
                     url: 'https://github.com/pms-org/pms-transactional.git'
+            }
+        }
+
+        stage('Debug Workspace') {
+            steps {
+                sh 'pwd'
+                sh 'ls -R .'
             }
         }
 
