@@ -28,13 +28,16 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                dir('pms-transactional') {           // <--- THIS IS THE FIX
-                    sh "docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} ."
-                }
+       stage('Build Docker Image') {
+        steps {
+            dir("${env.WORKSPACE}") {   // <--- Run inside correct folder
+            sh """
+                docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
+            """
+            }
             }
         }
+
 
 
         stage('Login & Push to DockerHub') {
