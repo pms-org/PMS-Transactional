@@ -29,14 +29,13 @@ pipeline {
         }
 
        stage('Build Docker Image') {
-        steps {
-            dir("${env.WORKSPACE}") {   // <--- Run inside correct folder
-            sh """
-                docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
-            """
-            }
-            }
-        }
+    steps {
+        sh """
+            docker build --progress=plain -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
+        """
+    }
+}
+
 
 
 
