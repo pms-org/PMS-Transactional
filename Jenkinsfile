@@ -22,11 +22,12 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh """
-                docker build -f docker/Dockerfile -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
-                """
+                dir('pms-transactional') {           // <--- THIS IS THE FIX
+                    sh "docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} ."
+                }
             }
         }
+
 
         stage('Login & Push to DockerHub') {
             steps {
@@ -78,5 +79,5 @@ pipeline {
         success { echo "Deployment Successful" }
         failure { echo "Deployment Failed" }
     }
-    
+
 }
