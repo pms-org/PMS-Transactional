@@ -22,6 +22,18 @@ pipeline {
     }
 }
 
+stage('DEBUG CREDENTIALS') {
+    steps {
+        echo "Checking credentials..."
+        withCredentials([file(credentialsId: 'pms-env-file', variable: 'ENV_FILE')]) {
+            echo "ENV file credential loaded successfully!"
+        }
+        sshagent(['ec2-ssh-key']) {
+            echo "SSH credential loaded successfully!"
+        }
+    }
+}
+
 
         stage('Debug Workspace') {
             steps {
