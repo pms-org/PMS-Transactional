@@ -15,11 +15,15 @@ pipeline {
         }
 
         stage('Git Checkout') {
-            steps {
-                git branch: 'main',
-                    url: 'https://github.com/pms-org/pms-transactional.git'
-            }
-        }
+    steps {
+        checkout([$class: 'GitSCM',
+            branches: [[name: 'main']],
+            extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: '.']],
+            userRemoteConfigs: [[url: 'https://github.com/pms-org/pms-transactional.git']]
+        ])
+    }
+}
+
 
         stage('Debug Workspace') {
             steps {
