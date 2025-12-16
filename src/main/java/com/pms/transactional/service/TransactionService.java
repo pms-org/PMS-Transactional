@@ -22,34 +22,31 @@ import com.pms.transactional.enums.TradeSide;
 import com.pms.transactional.mapper.TradeMapper;
 import com.pms.transactional.mapper.TransactionMapper;
 
-import jakarta.transaction.Transactional;
 
 @Service
-public class TransactionService {
+public class TransactionService{
+
     @Autowired
     private TransactionDao transactionDao;
-
-    @Autowired
-    private TransactionMapper transactionMapper;
-
-    @Autowired
-    private TradeMapper tradeMapper;
 
     @Autowired
     private TradesDao tradesDao;
 
     @Autowired
-    private OutboxEventsDao outboxEventsDao;
+    private OutboxEventsDao outboxDao;
+
+    @Autowired
+    private TransactionMapper transactionMapper;
+
     Logger logger = LoggerFactory.getLogger(TransactionService.class);
 
-    @Transactional
-    public void handleBuy(TradeProto trade) {
+    public void processBuy(TradeProto trade,List<TradesEntity> trades,List<TransactionsEntity> txns,List<OutboxEventEntity> outbox) {
 
         UUID tradeId = UUID.fromString(trade.getTradeId());
 
         if (tradesDao.existsById(tradeId)) {
             logger.error("Trade with ID {} already exists. Rejecting duplicate trade.", tradeId);
-            throw new RuntimeException("Trade with ID " + tradeId + " already exists.");
+            return;
         }
 
         TradesEntity buyTrade = new TradesEntity();
@@ -60,35 +57,34 @@ public class TransactionService {
         buyTrade.setPricePerStock(BigDecimal.valueOf(trade.getPricePerStock()));
         buyTrade.setQuantity(trade.getQuantity());
         buyTrade.setTimestamp(LocalDateTime.now());
-
-        buyTrade = tradesDao.save(buyTrade);
+        trades.add(buyTrade);
 
         TransactionsEntity buyTxn = new TransactionsEntity();
         buyTxn.setTrade(buyTrade);
         buyTxn.setBuyPrice(null);
         buyTxn.setQuantity(trade.getQuantity());
+        txns.add(buyTxn);
 
-        transactionDao.save(buyTxn);
-
-        TransactionProto transactionProto = transactionMapper.toProto(buyTxn);
-
-        OutboxEventEntity outboxEventEntity = new OutboxEventEntity();
-        outboxEventEntity.setAggregateId(buyTxn.getTransactionId());
-        outboxEventEntity.setPayload(transactionProto.toByteArray());
-        outboxEventEntity.setStatus("PENDING");
-        outboxEventEntity.setCreatedAt(LocalDateTime.now());
-        outboxEventsDao.save(outboxEventEntity);
+        if (!outboxDao.existsByAggregateId(buyTxn.getTransactionId())) {
+            TransactionProto proto = transactionMapper.toProto(buyTxn);
+            OutboxEventEntity event = new OutboxEventEntity();
+            event.setAggregateId(buyTxn.getTransactionId());
+            event.setPayload(proto.toByteArray());
+            event.setStatus("PENDING");
+            event.setCreatedAt(LocalDateTime.now());
+            outbox.add(event);
+        }
     }
 
-    @Transactional
-    public void handleSell(TradeProto trade) {
+     public void processSell(TradeProto trade,List<TradesEntity> trades,List<TransactionsEntity> txns,List<OutboxEventEntity> outbox) {
 
         UUID tradeId = UUID.fromString(trade.getTradeId());
-        TradesEntity sellTrade = new TradesEntity();
 
         if (tradesDao.existsById(tradeId)) {
-            throw new RuntimeException("Trade with ID " + tradeId + " already exists.");
+            return;
         }
+
+        TradesEntity sellTrade = new TradesEntity();
         sellTrade.setTradeId(tradeId);
         sellTrade.setPortfolioId(UUID.fromString(trade.getPortfolioId()));
         sellTrade.setSymbol(trade.getSymbol());
@@ -97,52 +93,43 @@ public class TransactionService {
         sellTrade.setQuantity(trade.getQuantity());
         sellTrade.setTimestamp(LocalDateTime.now());
 
-        sellTrade = tradesDao.save(sellTrade);
+        trades.add(sellTrade);
 
-        List<TransactionsEntity> buyList = transactionDao.findBuyOrdersFIFO(sellTrade.getPortfolioId(),
-                sellTrade.getSymbol(), TradeSide.valueOf("BUY"));
-        long sellQty = sellTrade.getQuantity();
-        long totalAvailable = buyList.stream()
-                .mapToLong(TransactionsEntity::getQuantity)
-                .sum();
+        List<TransactionsEntity> buyList =
+                transactionDao.findBuyOrdersFIFO(
+                        sellTrade.getPortfolioId(),
+                        sellTrade.getSymbol(),
+                        TradeSide.BUY);
 
-        if (totalAvailable < sellQty) {
-            throw new RuntimeException(
-                    "Insufficient BUY quantity. Required: " + sellQty + ", Available: " + totalAvailable);
-        }
+        long qtyToSell = sellTrade.getQuantity();
 
         for (TransactionsEntity buyTx : buyList) {
 
-            if (sellQty == 0)
-                break;
-
+            if (qtyToSell <= 0) break;
             long available = buyTx.getQuantity();
-            long matchedQty = Math.min(available, sellQty);
+            long matchedQty = Math.min(available, qtyToSell);
 
             buyTx.setQuantity(available - matchedQty);
-            transactionDao.save(buyTx);
+            txns.add(buyTx);
 
             TransactionsEntity sellTxn = new TransactionsEntity();
-
             sellTxn.setTrade(sellTrade);
             sellTxn.setBuyPrice(buyTx.getTrade().getPricePerStock());
             sellTxn.setQuantity(matchedQty);
-            transactionDao.save(sellTxn);
+            txns.add(sellTxn);
 
-            sellQty -= matchedQty;
+            qtyToSell -= matchedQty;
 
-            TransactionProto transactionProto = transactionMapper.toProto(sellTxn);
-
-            OutboxEventEntity outboxEventEntity = new OutboxEventEntity();
-            outboxEventEntity.setAggregateId(sellTxn.getTransactionId());
-            outboxEventEntity.setPayload(transactionProto.toByteArray());
-            outboxEventEntity.setStatus("PENDING");
-            outboxEventEntity.setCreatedAt(LocalDateTime.now());
-
-            outboxEventsDao.save(outboxEventEntity);
-
+            if (!outboxDao.existsByAggregateId(sellTxn.getTransactionId())) {
+                TransactionProto proto = transactionMapper.toProto(sellTxn);
+                OutboxEventEntity event = new OutboxEventEntity();
+                event.setAggregateId(sellTxn.getTransactionId());
+                event.setPayload(proto.toByteArray());
+                event.setStatus("PENDING");
+                event.setCreatedAt(LocalDateTime.now());
+                outbox.add(event);
+            }
         }
-
     }
 
 }

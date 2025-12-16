@@ -11,4 +11,5 @@ import com.pms.transactional.entities.OutboxEventEntity;
 @Repository
 public interface OutboxEventsDao extends JpaRepository<OutboxEventEntity, UUID>{
     List<OutboxEventEntity> findByStatusOrderByCreatedAt(String status);
+    boolean existsByAggregateId(UUID aggregateId);
 }

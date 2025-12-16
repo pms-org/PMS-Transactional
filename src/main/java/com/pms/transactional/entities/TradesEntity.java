@@ -21,7 +21,7 @@ import lombok.NoArgsConstructor;
 @Data
 @Entity
 @Table(name = "trades")
-public class TradesEntity {
+public class TradesEntity{
 
     @Id
     @Column(name = "trade_id", nullable = false)

@@ -9,5 +9,5 @@ import com.pms.transactional.entities.TradesEntity;
 
 @Repository
 public interface TradesDao extends JpaRepository<TradesEntity, UUID> {
-
+    
 }

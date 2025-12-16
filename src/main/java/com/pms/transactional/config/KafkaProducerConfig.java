@@ -19,7 +19,7 @@ import io.confluent.kafka.serializers.protobuf.KafkaProtobufSerializer;
 @Configuration
 public class KafkaProducerConfig {
 
-    @Value("${spring.kafka.bootstrap-servers}")
+    @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
     private String bootstrapServers;
 
     @Value("${spring.kafka.properties.schema.registry.url:http://localhost:8081}")
