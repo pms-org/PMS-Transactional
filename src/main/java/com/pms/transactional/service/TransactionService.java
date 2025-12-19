@@ -24,7 +24,6 @@ import com.pms.transactional.entities.TradesEntity;
 import com.pms.transactional.entities.TransactionsEntity;
 import com.pms.transactional.enums.TradeSide;
 import com.pms.transactional.exceptions.InvalidTradeException;
-import com.pms.transactional.mapper.TradeMapper;
 import com.pms.transactional.mapper.TransactionMapper;
 
 
