@@ -1,5 +1,7 @@
 package com.pms.transactional.service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 
 import org.slf4j.Logger;
@@ -19,21 +21,20 @@ public class KafkaTradeMessageListner {
     Logger logger = LoggerFactory.getLogger(KafkaMessageListner.class);
 
     @Autowired
-    private BlockingQueue<TradeRecord> buffer;
+    private BlockingQueue<List<TradeProto>> buffer;
 
     @Autowired
     private BatchProcessor batchProcessor;
 
     @KafkaListener(topics = "valid-trades-topic", groupId = "trades", containerFactory = "tradekafkaListenerContainerFactory")
-    public void listen(TradeProto proto,Acknowledgment ack) {
-        buffer.offer(new TradeRecord(proto, ack));
+    public void listen(List<TradeProto> protoList) {
+        buffer.offer(new ArrayList<TradeProto>(protoList));
         batchProcessor.checkAndFlush();
     }
     
     @DltHandler
-    public void ListenDLT(TradeProto trade,Acknowledgment ack) {
+    public void ListenDLT(TradeProto trade) {
         logger.error("DLT reached for trade: {}", trade);
-        ack.acknowledge();
     }
 
 

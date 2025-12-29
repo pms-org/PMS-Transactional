@@ -19,6 +19,7 @@ import com.pms.transactional.TransactionProto;
 import com.pms.transactional.dao.OutboxEventsDao;
 import com.pms.transactional.dao.TradesDao;
 import com.pms.transactional.dao.TransactionDao;
+import com.pms.transactional.entities.InvalidTradesEntity;
 import com.pms.transactional.entities.OutboxEventEntity;
 import com.pms.transactional.entities.TradesEntity;
 import com.pms.transactional.entities.TransactionsEntity;
@@ -81,10 +82,9 @@ public class TransactionService{
     }
 
      public void processSell(TradeProto trade,Map<String, List<TransactionsEntity>> allBuys, List<TransactionsEntity> updatedBuys,List<TradesEntity> trades,List<TransactionsEntity> txns,List<OutboxEventEntity> outbox) {
-
         UUID tradeId = UUID.fromString(trade.getTradeId());
 
-        if (tradesDao.existsById(tradeId)) {
+        if(tradesDao.existsById(tradeId)){
             logger.error("Trade with ID {} already exists. Rejecting duplicate trade.", tradeId);
             return;
         }
@@ -112,7 +112,7 @@ public class TransactionService{
                                      .mapToLong(TransactionsEntity::getQuantity)
                                      .sum();
 
-        if (totalAvailable < qtyToSell) {
+        if(totalAvailable < qtyToSell){
             throw new InvalidTradeException(
                     "Insufficient quantity. Available=" + totalAvailable +
                     ", Required=" + qtyToSell +
@@ -120,9 +120,9 @@ public class TransactionService{
             );
         }
 
-        for (TransactionsEntity buyTx : eligibleBuys) {
+        for(TransactionsEntity buyTx : eligibleBuys){
 
-            if (qtyToSell <= 0) break;
+            if(qtyToSell <= 0) break;
             long available = buyTx.getQuantity();
             long matchedQty = Math.min(available, qtyToSell);
 
@@ -137,7 +137,7 @@ public class TransactionService{
 
             qtyToSell -= matchedQty;
 
-            if (!outboxDao.existsByAggregateId(sellTxn.getTransactionId())) {
+            if(!outboxDao.existsByAggregateId(sellTxn.getTransactionId())){
                 TransactionProto proto = transactionMapper.toProto(sellTxn);
                 OutboxEventEntity event = new OutboxEventEntity();
                 event.setAggregateId(sellTxn.getTransactionId());
@@ -147,6 +147,15 @@ public class TransactionService{
                 outbox.add(event);
             }
         }
+    }
+
+    public void handleInvalid(TradeProto trade,List<InvalidTradesEntity> invalidTrades, String errorMessage){
+            InvalidTradesEntity invalidTrade = new InvalidTradesEntity();
+            invalidTrade.setAggregateId(UUID.fromString(trade.getTradeId()));
+            invalidTrade.setPayload(trade.toByteArray());
+            invalidTrade.setErrorMessage(errorMessage);
+
+            invalidTrades.add(invalidTrade);
     }
 
 }

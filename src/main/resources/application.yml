@@ -21,6 +21,7 @@ spring:
   kafka:
     admin:
       enabled: false
+    
       
 server:
   port: 8084
