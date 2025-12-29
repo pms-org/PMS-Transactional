@@ -5,7 +5,10 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.pms.transactional.entities.OutboxEventEntity;
 
@@ -24,5 +27,10 @@ public interface OutboxEventsDao extends JpaRepository<OutboxEventEntity, UUID> 
         Pageable pageable
     );
     boolean existsByAggregateId(UUID aggregateId);
+
+    @Modifying
+    @Transactional
+    @Query("update OutboxEventEntity e set e.status = 'SENT' where e.id in :ids")
+    void markAsSent(List<UUID> ids);
 
 }

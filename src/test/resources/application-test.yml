@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pms
+    username: postgres
+    password: postgres
+    hikari:
+      data-source-properties:
+        TimeZone: Asia/Kolkata
+
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Kolkata

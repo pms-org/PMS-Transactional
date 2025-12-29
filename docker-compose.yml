@@ -69,13 +69,13 @@ services:
         SCHEMA_REGISTRY_HOST_NAME: schema-registry
         SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
 
-    kafka-tools:
-      image: confluentinc/cp-kafka:7.6.0
-      hostname: kafka-tools
-      container_name: kafka-tools
-      depends_on:
-        - kafka
-      entrypoint: ["sleep", "infinity"]
+    # kafka-tools:
+    #   image: confluentinc/cp-kafka:7.6.0
+    #   hostname: kafka-tools
+    #   container_name: kafka-tools
+    #   depends_on:
+    #     - kafka
+    #   entrypoint: ["sleep", "infinity"]
       # You can exec into this container and run kafka CLI tools
 
     control-center:

@@ -10,7 +10,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -29,8 +29,8 @@ logging:
   level:
     root: INFO
     com.pms: INFO
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    # org.hibernate.SQL: DEBUG
+    # org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
 springdoc:
   api-docs:

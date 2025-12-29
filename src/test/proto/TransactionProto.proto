@@ -17,7 +17,6 @@ message TradeProto {
   google.protobuf.Timestamp timestamp = 7;
 }
 
-
 message TransactionProto {
   string transaction_id = 1; 
   string portfolio_id = 2;
