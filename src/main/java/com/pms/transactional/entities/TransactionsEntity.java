@@ -25,7 +25,7 @@ public class TransactionsEntity{
 
     @Id
     @Column(name = "transaction_id")
-    private UUID transactionId = UUID.randomUUID();
+    private UUID transactionId;
 
     @ManyToOne
     @JoinColumn(name = "trade_id")

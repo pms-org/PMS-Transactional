@@ -56,6 +56,7 @@ public class TransactionService {
     Logger logger = LoggerFactory.getLogger(TransactionService.class);
 
     @Transactional
+<<<<<<< Updated upstream
     public void processUnifiedBatch(List<TradeProto> buyBatch, List<TradeProto> sellBatch) {
         try {
             if (!buyBatch.isEmpty())
@@ -70,32 +71,38 @@ public class TransactionService {
 
     @Transactional
     public void processBuyBatch(List<TradeProto> buyBatch) {
+=======
+    public void processBuyBatch(List<TradeProto> buyBatch){
+>>>>>>> Stashed changes
         List<TradesEntity> trades = new ArrayList<>();
-        List<TransactionsEntity> txns = new ArrayList<>();
-        List<OutboxEventEntity> outbox = new ArrayList<>();
+        List<TransactionsEntity> transactions = new ArrayList<>();
+        List<OutboxEventEntity> outboxEvents = new ArrayList<>();
 
         for (TradeProto record : buyBatch) {
-            UUID tradeId = UUID.fromString(record.getTradeId());
-            if (tradesDao.existsById(tradeId)) {
-                logger.info("Skipping BUY trade {} - already processed", tradeId);
-                continue;
-            }
-            processBuy(record, trades, txns, outbox);
+            processBuy(record, trades, transactions, outboxEvents);
         }
 
+<<<<<<< Updated upstream
         tradesDao.saveAll(trades);
         transactionDao.saveAll(txns);
         outboxDao.saveAll(outbox);
 
         System.out.println("Buy Batch Flushed: Trades=" + trades.size() + " Transactions=" + txns.size() + " Outbox="
                 + outbox.size());
+=======
+        for(TradesEntity trade : trades) tradesDao.upsert(trade);
+        for(TransactionsEntity transaction : transactions) transactionDao.upsert(transaction);
+        for(OutboxEventEntity outboxEvent : outboxEvents) outboxDao.upsert(outboxEvent);
+        
+        System.out.println("Buy Batch Flushed: Trades=" + trades.size() + " Transactions=" + transactions.size() + " Outbox=" + outboxEvents.size());
+>>>>>>> Stashed changes
     }
 
     @Transactional
     public void processSellBatch(List<TradeProto> sellBatch) {
         List<TradesEntity> trades = new ArrayList<>();
-        List<TransactionsEntity> txns = new ArrayList<>();
-        List<OutboxEventEntity> outbox = new ArrayList<>();
+        List<TransactionsEntity> transactions = new ArrayList<>();
+        List<OutboxEventEntity> outboxEvents = new ArrayList<>();
         List<TransactionsEntity> updatedBuys = new ArrayList<>();
         List<InvalidTradesEntity> invalidTrades = new ArrayList<>();
 
@@ -114,12 +121,18 @@ public class TransactionService {
                 .collect(Collectors.groupingBy(b -> b.getTrade().getPortfolioId() + "_" + b.getTrade().getSymbol(),
                         LinkedHashMap::new, Collectors.toList()));
 
+<<<<<<< Updated upstream
         for (TradeProto record : sellBatch) {
             UUID tradeId = UUID.fromString(record.getTradeId());
 
             if (tradesDao.existsById(tradeId)) {
                 logger.info("Skipping SELL trade {} - already processed", tradeId);
                 continue;
+=======
+        for (TradeProto record : sellBatch){   
+            try{
+                processSell(record,buyMap, updatedBuys,trades, transactions, outboxEvents);
+>>>>>>> Stashed changes
             }
             try {
                 processSell(record, buyMap, updatedBuys, trades, txns, outbox);
@@ -129,16 +142,23 @@ public class TransactionService {
             }
         }
 
-        tradesDao.saveAll(trades);
-        transactionDao.saveAll(txns);
-        transactionDao.saveAll(new ArrayList<>(new LinkedHashSet<>(updatedBuys)));
-        outboxDao.saveAll(outbox);
+        for(TradesEntity trade : trades) tradesDao.upsert(trade);
+        for(TransactionsEntity transaction : transactions) transactionDao.upsert(transaction);
+        for(OutboxEventEntity outboxEvent : outboxEvents) outboxDao.upsert(outboxEvent);
+
+        if (!updatedBuys.isEmpty()) {
+            transactionDao.saveAll(new LinkedHashSet<>(updatedBuys));
+        }
 
         if (!invalidTrades.isEmpty()) {
             invalidTradesDao.saveAll(invalidTrades);
         }
+<<<<<<< Updated upstream
         System.out.println("Sell Batch Flushed: Trades=" + trades.size() + " Transactions=" + txns.size() + " Outbox="
                 + outbox.size());
+=======
+        System.out.println("Sell Batch Flushed: Trades=" + trades.size() + " Transactions=" + transactions.size() + " Outbox=" + outboxEvents.size());
+>>>>>>> Stashed changes
     }
 
     public void processBuy(TradeProto trade, List<TradesEntity> trades, List<TransactionsEntity> txns,
@@ -159,11 +179,15 @@ public class TransactionService {
         trades.add(buyTrade);
 
         TransactionsEntity buyTxn = new TransactionsEntity();
+        String key = "BUY_" + trade.getTradeId();
+        UUID txnId = UUID.nameUUIDFromBytes(key.getBytes());
+        buyTxn.setTransactionId(txnId);
         buyTxn.setTrade(buyTrade);
         buyTxn.setBuyPrice(null);
         buyTxn.setQuantity(trade.getQuantity());
         txns.add(buyTxn);
 
+<<<<<<< Updated upstream
         if (!outboxDao.existsByAggregateId(buyTxn.getTransactionId())) {
             TransactionProto proto = transactionMapper.toProto(buyTxn);
             OutboxEventEntity event = new OutboxEventEntity();
@@ -175,6 +199,16 @@ public class TransactionService {
             event.setCreatedAt(LocalDateTime.now());
             outbox.add(event);
         }
+=======
+        TransactionProto proto = transactionMapper.toProto(buyTxn);
+        OutboxEventEntity event = new OutboxEventEntity();
+        event.setAggregateId(buyTxn.getTransactionId());
+        event.setPayload(proto.toByteArray());
+        event.setStatus("PENDING");
+        event.setCreatedAt(LocalDateTime.now());
+        outbox.add(event);
+        
+>>>>>>> Stashed changes
     }
 
     public void processSell(TradeProto trade, Map<String, List<TransactionsEntity>> allBuys,
@@ -189,10 +223,15 @@ public class TransactionService {
         sellTrade.setSide(TradeSide.SELL);
         sellTrade.setPricePerStock(BigDecimal.valueOf(trade.getPricePerStock()));
         sellTrade.setQuantity(trade.getQuantity());
+<<<<<<< Updated upstream
         sellTrade.setTimestamp(LocalDateTime.ofInstant(
                 Instant.ofEpochSecond(trade.getTimestamp().getSeconds(), trade.getTimestamp().getNanos()),
                 ZoneOffset.UTC));
 
+=======
+        sellTrade.setTimestamp(LocalDateTime.ofInstant(Instant.ofEpochSecond(trade.getTimestamp().getSeconds(), trade.getTimestamp().getNanos()),ZoneOffset.UTC));
+        
+>>>>>>> Stashed changes
         trades.add(sellTrade);
 
         long qtyToSell = trade.getQuantity();
@@ -229,6 +268,9 @@ public class TransactionService {
             updatedBuys.add(buyTx);
 
             TransactionsEntity sellTxn = new TransactionsEntity();
+            String key = "SELL_"+trade.getTradeId()+"BUY_"+buyTx.getTransactionId().toString();
+            UUID transactionId = UUID.nameUUIDFromBytes(key.getBytes());
+            sellTxn.setTransactionId(transactionId);
             sellTxn.setTrade(sellTrade);
             sellTxn.setBuyPrice(buyTx.getTrade().getPricePerStock());
             sellTxn.setQuantity(matchedQty);
@@ -236,6 +278,7 @@ public class TransactionService {
 
             qtyToSell -= matchedQty;
 
+<<<<<<< Updated upstream
             if (!outboxDao.existsByAggregateId(sellTxn.getTransactionId())) {
                 TransactionProto proto = transactionMapper.toProto(sellTxn);
                 OutboxEventEntity event = new OutboxEventEntity();
@@ -245,6 +288,16 @@ public class TransactionService {
                 event.setCreatedAt(LocalDateTime.now());
                 outbox.add(event);
             }
+=======
+            TransactionProto proto = transactionMapper.toProto(sellTxn);
+            OutboxEventEntity event = new OutboxEventEntity();
+            event.setAggregateId(sellTxn.getTransactionId());
+            event.setPayload(proto.toByteArray());
+            event.setStatus("PENDING");
+            event.setCreatedAt(LocalDateTime.now());
+            outbox.add(event);
+            
+>>>>>>> Stashed changes
         }
         System.out.println();
     }

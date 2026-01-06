@@ -16,6 +16,14 @@ import com.pms.transactional.entities.OutboxEventEntity;
 @Repository
 public interface OutboxEventsDao extends JpaRepository<OutboxEventEntity, UUID> {
 
+    @Modifying
+    @Query(value =  """
+                        INSERT INTO outbox_events (aggregate_id, payload, status, created_at)
+                        VALUES (:#{#e.aggregateId}, :#{#e.payload}, :#{#e.status}, :#{#e.createdAt})
+                        ON CONFLICT (aggregate_id) DO NOTHING
+                    """, nativeQuery = true)
+    void upsert(@Param("e") OutboxEventEntity event);
+
     List<OutboxEventEntity> findByStatusOrderByCreatedAt(
             String status,
             Pageable pageable);

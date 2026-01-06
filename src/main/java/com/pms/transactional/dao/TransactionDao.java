@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,6 +13,15 @@ import com.pms.transactional.entities.TransactionsEntity;
 import com.pms.transactional.enums.TradeSide;
 
 public interface TransactionDao extends JpaRepository<TransactionsEntity, UUID>{
+
+    @Modifying
+    @Query(value =  """
+                      INSERT INTO transactions (transaction_id, trade_id, buy_price, quantity)
+                      VALUES (:#{#txn.transactionId}, :#{#txn.trade.tradeId}, :#{#txn.buyPrice}, :#{#txn.quantity})
+                      ON CONFLICT (transaction_id) DO NOTHING
+                    """, nativeQuery = true)
+    void upsert(@Param("txn") TransactionsEntity txn);
+
     @Query("""
                 SELECT tx FROM TransactionsEntity tx
                 JOIN TradesEntity t ON tx.trade.tradeId = t.tradeId
