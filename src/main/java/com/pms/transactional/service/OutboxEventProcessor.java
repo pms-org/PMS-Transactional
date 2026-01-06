@@ -19,16 +19,22 @@ public class OutboxEventProcessor {
 
     private  KafkaTemplate<String, Object> kafkaTemplate;
 
-    public OutboxEventProcessor(KafkaTemplate<String, Object> kafkaTemplate) {
+    public OutboxEventProcessor(KafkaTemplate<String, Object> kafkaTemplate){
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    public ProcessingResult process(List<OutboxEventEntity> events) {
+    public ProcessingResult process(List<OutboxEventEntity> events){
 
         List<UUID> successfulIds = new ArrayList<>();
+<<<<<<< Updated upstream
             
         for (OutboxEventEntity event : events) {
             try {
+=======
+
+        for (OutboxEventEntity event : events){
+            try{
+>>>>>>> Stashed changes
                 TransactionProto proto =
                         TransactionProto.parseFrom(event.getPayload());
 
@@ -40,9 +46,23 @@ public class OutboxEventProcessor {
 
                 successfulIds.add(event.getTransactionOutboxId());
 
+<<<<<<< Updated upstream
             } catch (InvalidProtocolBufferException e) {
                 return ProcessingResult.poisonPill(successfulIds, event);
             } catch (Exception e) {
+=======
+            }
+            // POISON PILL (bad data)
+            catch(InvalidProtocolBufferException | SerializationException e){
+                return ProcessingResult.poisonPill(successfulIds, event);
+            }
+            // SYSTEM FAILURE (Kafka down / timeout)
+            catch(TimeoutException | InterruptedException e){
+                Thread.currentThread().interrupt();
+                return ProcessingResult.systemFailure(successfulIds);
+            }
+            catch(Exception e){
+>>>>>>> Stashed changes
                 return ProcessingResult.systemFailure(successfulIds);
             }
         }

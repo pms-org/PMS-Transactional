@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Data
 @Entity
-@Table(name="invalid-trades")
+@Table(name="invalid_trades")
 public class InvalidTradesEntity {
    
     @Id

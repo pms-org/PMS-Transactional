@@ -4,18 +4,24 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import com.pms.transactional.TradeProto;
 import com.pms.transactional.TransactionProto;
+import com.pms.transactional.dao.InvalidTradesDao;
 import com.pms.transactional.dao.OutboxEventsDao;
 import com.pms.transactional.dao.TradesDao;
 import com.pms.transactional.dao.TransactionDao;
@@ -26,6 +32,8 @@ import com.pms.transactional.entities.TransactionsEntity;
 import com.pms.transactional.enums.TradeSide;
 import com.pms.transactional.exceptions.InvalidTradeException;
 import com.pms.transactional.mapper.TransactionMapper;
+
+import jakarta.transaction.Transactional;
 
 
 @Service
@@ -41,18 +49,97 @@ public class TransactionService{
     private OutboxEventsDao outboxDao;
 
     @Autowired
+    private InvalidTradesDao invalidTradesDao;
+
+    @Autowired
     private TransactionMapper transactionMapper;
 
     Logger logger = LoggerFactory.getLogger(TransactionService.class);
 
-    public void processBuy(TradeProto trade,List<TradesEntity> trades,List<TransactionsEntity> txns,List<OutboxEventEntity> outbox) {
+    @Transactional
+    public void processUnifiedBatch(List<TradeProto> buyBatch, List<TradeProto> sellBatch) {
+        try{
+            if (!buyBatch.isEmpty()) processBuyBatch(buyBatch);
+            if (!sellBatch.isEmpty()) processSellBatch(sellBatch);
+        } 
+        catch(DataIntegrityViolationException e){
+            logger.error("Conflict detected in Database. Rolling back batch to prevent duplicates.");
+            throw e;
+        }
+    }
+
+    @Transactional
+    public void processBuyBatch(List<TradeProto> buyBatch){
+        List<TradesEntity> trades = new ArrayList<>();
+        List<TransactionsEntity> txns = new ArrayList<>();
+        List<OutboxEventEntity> outbox = new ArrayList<>();
+
+        for (TradeProto record : buyBatch) {
+            UUID tradeId = UUID.fromString(record.getTradeId());
+            if (tradesDao.existsById(tradeId)) {
+                logger.info("Skipping BUY trade {} - already processed", tradeId);
+                continue;
+            }
+            processBuy(record, trades, txns, outbox);
+        }
+
+        tradesDao.saveAll(trades);
+        transactionDao.saveAll(txns);
+        outboxDao.saveAll(outbox);
+
+        System.out.println("Buy Batch Flushed: Trades=" + trades.size() + " Transactions=" + txns.size() + " Outbox=" + outbox.size());
+    }
+
+    @Transactional
+    public void processSellBatch(List<TradeProto> sellBatch){
+        List<TradesEntity> trades = new ArrayList<>();
+        List<TransactionsEntity> txns = new ArrayList<>();
+        List<OutboxEventEntity> outbox = new ArrayList<>();
+        List<TransactionsEntity> updatedBuys = new ArrayList<>();
+        List<InvalidTradesEntity> invalidTrades = new ArrayList<>();
+
+        Set<UUID> portfolioIds = sellBatch.stream()
+                                            .map(record -> UUID.fromString(record.getPortfolioId()))
+                                            .collect(Collectors.toSet()); 
+
+        Set<String> symbols = sellBatch.stream()
+                                        .map(record->record.getSymbol())
+                                        .collect(Collectors.toSet());
+
+        List<TransactionsEntity> eligibleBuys = transactionDao.findEligibleBuys(new ArrayList<>(portfolioIds),new ArrayList<>(symbols),TradeSide.BUY);
+
+        Map<String, List<TransactionsEntity>> buyMap = eligibleBuys.stream().collect(Collectors.groupingBy( b -> b.getTrade().getPortfolioId() + "_" + b.getTrade().getSymbol(), LinkedHashMap::new, Collectors.toList() ));
+
+        for (TradeProto record : sellBatch){
+            UUID tradeId = UUID.fromString(record.getTradeId());
+            
+            if (tradesDao.existsById(tradeId)) {
+                logger.info("Skipping SELL trade {} - already processed", tradeId);
+                continue;
+            }   
+            try{
+                processSell(record,buyMap, updatedBuys,trades, txns, outbox);
+            }
+            catch(InvalidTradeException ex){
+                logger.info("Invalid trade message detected");
+                handleInvalid(record, invalidTrades, ex.getErrorMessage());
+            }
+        }
+
+        tradesDao.saveAll(trades);
+        transactionDao.saveAll(txns);
+        transactionDao.saveAll(new ArrayList<>(new LinkedHashSet<>(updatedBuys)));
+        outboxDao.saveAll(outbox);
+
+        if(!invalidTrades.isEmpty()){
+            invalidTradesDao.saveAll(invalidTrades);
+        }
+        System.out.println("Sell Batch Flushed: Trades=" + trades.size() + " Transactions=" + txns.size() + " Outbox=" + outbox.size());
+    }
+
+    public void processBuy(TradeProto trade,List<TradesEntity> trades,List<TransactionsEntity> txns,List<OutboxEventEntity> outbox){
 
         UUID tradeId = UUID.fromString(trade.getTradeId());
-
-        if (tradesDao.existsById(tradeId)) {
-            logger.error("Trade with ID {} already exists. Rejecting duplicate trade.", tradeId);
-            return;
-        }
 
         TradesEntity buyTrade = new TradesEntity();
         buyTrade.setTradeId(tradeId);
@@ -81,13 +168,8 @@ public class TransactionService{
         }
     }
 
-     public void processSell(TradeProto trade,Map<String, List<TransactionsEntity>> allBuys, List<TransactionsEntity> updatedBuys,List<TradesEntity> trades,List<TransactionsEntity> txns,List<OutboxEventEntity> outbox) {
+    public void processSell(TradeProto trade,Map<String, List<TransactionsEntity>> allBuys, List<TransactionsEntity> updatedBuys,List<TradesEntity> trades,List<TransactionsEntity> txns,List<OutboxEventEntity> outbox) {
         UUID tradeId = UUID.fromString(trade.getTradeId());
-
-        if(tradesDao.existsById(tradeId)){
-            logger.error("Trade with ID {} already exists. Rejecting duplicate trade.", tradeId);
-            return;
-        }
 
         TradesEntity sellTrade = new TradesEntity();
         sellTrade.setTradeId(tradeId);
@@ -105,8 +187,9 @@ public class TransactionService{
         if (allEligibleBuys == null) { throw new InvalidTradeException("No eligible buys for SELL " + tradeId); }
 
         List<TransactionsEntity> eligibleBuys = allEligibleBuys.stream()
-                                                                .filter(buy -> buy.getTrade().getTimestamp().isBefore(sellTrade.getTimestamp()))
-                                                                .collect(Collectors.toList());
+                .filter(buy -> buy.getTrade().getTimestamp().isBefore(sellTrade.getTimestamp()))
+                .filter(buy -> buy.getQuantity() > 0)
+                .collect(Collectors.toList());
 
         long totalAvailable = eligibleBuys.stream()
                                      .mapToLong(TransactionsEntity::getQuantity)
@@ -119,7 +202,7 @@ public class TransactionService{
                     ", TradeId=" + trade.getTradeId()
             );
         }
-
+        
         for(TransactionsEntity buyTx : eligibleBuys){
 
             if(qtyToSell <= 0) break;
@@ -151,12 +234,12 @@ public class TransactionService{
     }
 
     public void handleInvalid(TradeProto trade,List<InvalidTradesEntity> invalidTrades, String errorMessage){
-            InvalidTradesEntity invalidTrade = new InvalidTradesEntity();
-            invalidTrade.setAggregateId(UUID.fromString(trade.getTradeId()));
-            invalidTrade.setPayload(trade.toByteArray());
-            invalidTrade.setErrorMessage(errorMessage);
+        InvalidTradesEntity invalidTrade = new InvalidTradesEntity();
+        invalidTrade.setAggregateId(UUID.fromString(trade.getTradeId()));
+        invalidTrade.setPayload(trade.toByteArray());
+        invalidTrade.setErrorMessage(errorMessage);
 
-            invalidTrades.add(invalidTrade);
+        invalidTrades.add(invalidTrade);
     }
 
 }

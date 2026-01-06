@@ -5,7 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-public class AdaptiveBatchSizer {
+public class AdaptiveBatchSizer{
 
     @Value("${app.outbox.target-latency-ms:200}")
     private long targetLatencyMs;
@@ -18,29 +18,30 @@ public class AdaptiveBatchSizer {
 
     private final AtomicInteger currentBatchSize = new AtomicInteger(10);
 
-    public void adjust(long timeTakenMs, int recordsProcessed) {
+    public void adjust(long timeTakenMs, int recordsProcessed){
         int current = currentBatchSize.get();
         int next = current;
 
         // Drain phase
-        if (recordsProcessed < current) {
+        if (recordsProcessed < current){
             next = minBatchSize;
         }
         // Growth / shrink phase
-        else if (timeTakenMs < targetLatencyMs) {
+        else if(timeTakenMs < targetLatencyMs){
             next = Math.min((int)(current * 1.2), maxBatchSize);
-        } else {
+        } 
+        else{
             next = Math.max((int)(current * 0.7), minBatchSize);
         }
 
         currentBatchSize.set(next);
     }
 
-    public int getCurrentSize() {
+    public int getCurrentSize(){
         return currentBatchSize.get();
     }
 
-    public void reset() {
+    public void reset(){
         currentBatchSize.set(minBatchSize);
     }
 }

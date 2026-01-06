@@ -27,13 +27,18 @@ public class KafkaTradeMessageListner {
     private BatchProcessor batchProcessor;
 
     @KafkaListener(topics = "valid-trades-topic", groupId = "trades", containerFactory = "tradekafkaListenerContainerFactory")
+<<<<<<< Updated upstream
     public void listen(List<TradeProto> trades) {
         trades.forEach(buffer::offer);
+=======
+    public void listen(List<TradeProto> protoList){
+        protoList.forEach(buffer::offer);
+>>>>>>> Stashed changes
         batchProcessor.checkAndFlush();
     }
     
     @DltHandler
-    public void ListenDLT(TradeProto trade) {
+    public void ListenDLT(TradeProto trade){
         logger.error("DLT reached for trade: {}", trade);
     }
 

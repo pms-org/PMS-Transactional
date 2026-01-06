@@ -16,13 +16,11 @@ public class KafkaMessageListner {
 
     @Transactional
     @KafkaListener(topics = "transactions-topic", groupId = "transactions", containerFactory = "kafkaListenerContainerFactory")
-    public void consume1(TransactionProto transaction) {
+    public void consume1(TransactionProto transaction){
         try {
             logger.info("Consumer message (parsed): {}", transaction);
         } catch (Exception e) {
             logger.error("Failed to parse protobuf ", e);
         }
-    }
-
-    
+    }   
 }

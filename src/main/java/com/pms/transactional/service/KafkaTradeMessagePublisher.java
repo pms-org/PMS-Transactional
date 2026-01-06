@@ -13,7 +13,7 @@ public class KafkaTradeMessagePublisher {
     @Autowired
     private KafkaTemplate<String, Object> kafkaTemplate;
 
-    public void publishTradeMessage(String key, TradeProto trade) {
+    public void publishTradeMessage(String key, TradeProto trade){
         System.out.println("Hi from publisher");
 
         kafkaTemplate.send("valid-trades-topic", key, trade)

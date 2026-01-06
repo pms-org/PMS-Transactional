@@ -14,6 +14,7 @@ import com.pms.transactional.dto.TradeRecord;
 @Configuration
 public class BufferConfig{
     @Bean
+<<<<<<< Updated upstream
 public BlockingQueue<TradeProto> protoBuffer() {
     return new LinkedBlockingQueue<>(20000);
 }
@@ -28,4 +29,9 @@ public BlockingQueue<TradeRecord> recordBuffer() {
     return new LinkedBlockingQueue<>(50000);
 }
 
+=======
+    public BlockingQueue<TradeProto> eventBuffer() {
+        return new LinkedBlockingQueue<>(50000);  
+    }
+>>>>>>> Stashed changes
 }
