@@ -27,10 +27,7 @@ public class BatchProcessor implements SmartLifecycle{
     private TransactionService transactionService;
 
     private static final int BATCH_SIZE = 10;
-<<<<<<< Updated upstream
-=======
     private static final long FLUSH_INTERVAL_MS = 10000;
->>>>>>> Stashed changes
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private boolean isRunning = false;
@@ -48,23 +45,14 @@ public class BatchProcessor implements SmartLifecycle{
             List<TradeProto> batch = new ArrayList<>(BATCH_SIZE);
             buffer.drainTo(batch, BATCH_SIZE);
 
-            if(batch.isEmpty()) return;
+            if(batch.isEmpty()) break;
 
             List<TradeProto> buyBatch = batch.stream().filter(record->(record.getSide()).equals("BUY")).collect(Collectors.toList());
+            List<TradeProto> sellBatch = batch.stream().filter(record->(record.getSide()).equals("SELL")).collect(Collectors.toList());
 
-            List<TradeProto> sellBatch = batch.stream()
-                                            .filter(record->(record.getSide()).equals("SELL"))
-                                            .collect(Collectors.toList());
-
-<<<<<<< Updated upstream
-        processBuyBatch(buyBatch);
-        processSellBatch(sellBatch);
-
-=======
             transactionService.processUnifiedBatch(buyBatch, sellBatch);
         }
         
->>>>>>> Stashed changes
     }
 
     @Override

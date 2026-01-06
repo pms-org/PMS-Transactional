@@ -37,64 +37,12 @@ public class OutboxDispatcher implements SmartLifecycle {
         t.start();
     }
 
-<<<<<<< Updated upstream
     private void loop() {
         while (running) {
             try {
                 dispatchOnce();
                 Thread.sleep(50);
             } catch (Exception ignored) {}
-=======
-    private void dispatchLoop(){
-        while(running){
-            try{
-                if(backoffMs > 0){
-                    Thread.sleep(backoffMs);
-                }
-
-                long start = System.currentTimeMillis();
-                int limit = batchSizer.getCurrentSize();
-
-                List<OutboxEventEntity> batch =
-                        outboxDao.findByStatusOrderByCreatedAt(
-                                "PENDING",
-                                PageRequest.of(0, limit)
-                        );
-
-                if(batch.isEmpty()){
-                    batchSizer.reset();
-                    backoffMs = 0;
-                    Thread.sleep(50);
-                    continue;
-                }
-
-                ProcessingResult result = processor.process(batch);
-
-                // PREFIX-SAFE UPDATE
-                if(!result.successfulIds().isEmpty()){
-                    outboxDao.markAsSent(result.successfulIds());
-                }
-
-                // POISON PILL
-                if(result.poisonPill() != null){
-                    // TODO: DLQ
-                    outboxDao.delete(result.poisonPill());
-                }
-
-                // SYSTEM FAILURE
-                if(result.systemFailure()){
-                    backoffMs = backoffMs == 0 ? 1000 : Math.min(backoffMs * 2, 30000);
-                    continue;
-                }
-
-                long duration = System.currentTimeMillis() - start;
-                batchSizer.adjust(duration, batch.size());
-                backoffMs = 0;
-
-            }catch(Exception e){
-                backoffMs = 1000;
-            }
->>>>>>> Stashed changes
         }
     }
 
