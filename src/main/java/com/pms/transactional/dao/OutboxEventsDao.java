@@ -16,43 +16,43 @@ import com.pms.transactional.entities.OutboxEventEntity;
 @Repository
 public interface OutboxEventsDao extends JpaRepository<OutboxEventEntity, UUID> {
 
-    @Modifying
-    @Query(value =  """
-                        INSERT INTO outbox_events (aggregate_id, payload, status, created_at)
-                        VALUES (:#{#e.aggregateId}, :#{#e.payload}, :#{#e.status}, :#{#e.createdAt})
-                        ON CONFLICT (aggregate_id) DO NOTHING
-                    """, nativeQuery = true)
-    void upsert(@Param("e") OutboxEventEntity event);
+        @Modifying
+        @Query(value = """
+                            INSERT INTO outbox_events (aggregate_id, payload, status, created_at)
+                            VALUES (:#{#e.aggregateId}, :#{#e.payload}, :#{#e.status}, :#{#e.createdAt})
+                            ON CONFLICT (aggregate_id) DO NOTHING
+                        """, nativeQuery = true)
+        void upsert(@Param("e") OutboxEventEntity event);
 
-    List<OutboxEventEntity> findByStatusOrderByCreatedAt(
-            String status,
-            Pageable pageable);
+        List<OutboxEventEntity> findByStatusOrderByCreatedAt(
+                        String status,
+                        Pageable pageable);
 
-    boolean existsByAggregateId(UUID aggregateId);
+        boolean existsByAggregateId(UUID aggregateId);
 
-    @Query(value = """
-            SELECT DISTINCT ON (portfolio_id) *
-            FROM outbox_events
-            WHERE status = 'PENDING'
-              AND pg_try_advisory_xact_lock(
-                    hashtext(portfolio_id::text)
-              )
-            ORDER BY portfolio_id, created_at
-            LIMIT :limit
-            """, nativeQuery = true)
-    List<OutboxEventEntity> findPendingWithPortfolioXactLock(
-            @Param("limit") int limit);
+        @Query(value = """
+                        SELECT *
+                        FROM outbox_events e
+                        WHERE e.status = 'PENDING'
+                          AND pg_try_advisory_xact_lock(
+                                hashtext(e.portfolio_id::text)
+                              )
+                        ORDER BY  e.created_at
+                        LIMIT :limit;
+                                    """, nativeQuery = true)
+        List<OutboxEventEntity> findPendingWithPortfolioXactLock(
+                        @Param("limit") int limit);
 
-    @Modifying
-    @Transactional
-    @Query("update OutboxEventEntity e set e.status = 'SENT' where e.transactionOutboxId in :ids")
-    void markAsSent(List<UUID> ids);
+        @Modifying
+        @Transactional
+        @Query("update OutboxEventEntity e set e.status = 'SENT' where e.transactionOutboxId in :ids")
+        void markAsSent(List<UUID> ids);
 
-    @Modifying
-    @Query("""
-                update OutboxEventEntity e
-                set e.status = 'FAILED'
-                where e.transactionOutboxId = :id
-            """)
-    void markAsFailed(@Param("id") UUID id);
+        @Modifying
+        @Query("""
+                            update OutboxEventEntity e
+                            set e.status = 'FAILED'
+                            where e.transactionOutboxId = :id
+                        """)
+        void markAsFailed(@Param("id") UUID id);
 }
