@@ -123,7 +123,7 @@ public class TransactionService {
         buyTrade.setTimestamp(LocalDateTime.ofInstant(
                 Instant.ofEpochSecond(trade.getTimestamp().getSeconds(), trade.getTimestamp().getNanos()),
                 ZoneOffset.UTC));
-        trades.add(buyTrae);
+        trades.add(buyTrade);
 
         TransactionsEntity buyTxn = new TransactionsEntity();
         String key = "BUY_" + trade.getTradeId();
