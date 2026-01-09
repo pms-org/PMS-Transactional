@@ -59,7 +59,7 @@ public class BatchInsertDao {
     }
 
     public void batchInsertInvalidTrades(List<InvalidTradesEntity> invalidTrades){
-        String insertQuery = "INSERT INTO INVALID_TRADES(invalid_trade_id,aggregate_id,payload,errorMessage) " +
+        String insertQuery = "INSERT INTO INVALID_TRADES(invalid_trade_id,aggregate_id,payload,error_message) " +
                              "VALUES(?,?,?,?) ON CONFLICT(aggregate_id) DO NOTHING";
 
         jdbcTemplate.batchUpdate(insertQuery,invalidTrades,500,(preparedStatement,invalidTrade)->{

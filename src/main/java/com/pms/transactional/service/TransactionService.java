@@ -63,7 +63,7 @@ public class TransactionService {
     }
 
     @Transactional
-    public void processSellBatch(List<TradeProto> sellBatch) {
+    public void processSellBatch(List<TradeProto>buyBatch,List<TradeProto> sellBatch) {
         List<TradesEntity> trades = new ArrayList<>();
         List<TransactionsEntity> transactions = new ArrayList<>();
         List<OutboxEventEntity> outboxEvents = new ArrayList<>();
@@ -152,7 +152,6 @@ public class TransactionService {
         List<TransactionsEntity> updatedBuys, List<TradesEntity> trades, List<TransactionsEntity> txns,
         List<OutboxEventEntity> outbox,List<InvalidTradesEntity> invalidTrades) {
         
-        try {
             UUID tradeId = UUID.fromString(trade.getTradeId());
             UUID portfolioId = UUID.fromString(trade.getPortfolioId());
             long qtyToSell = trade.getQuantity();
@@ -225,11 +224,7 @@ public class TransactionService {
 
                 remainingToMatch -= matchedQty;
                 if(remainingToMatch <= 0) break;
-            }
-        } 
-        catch(InvalidTradeException exception){
-            handleInvalid(trade, invalidTrades, exception.getErrorMessage());
-        }
+            } 
     }
 
     public void handleInvalid(TradeProto trade, List<InvalidTradesEntity> invalidTrades, String errorMessage) {

@@ -103,7 +103,7 @@ public class BatchProcessor implements SmartLifecycle{
     public void processUnifiedBatch(List<TradeProto> buyBatch, List<TradeProto> sellBatch) {
         try{
             if (!buyBatch.isEmpty()) transactionService.processBuyBatch(buyBatch);
-            if (!sellBatch.isEmpty()) transactionService.processSellBatch(sellBatch);
+            if (!sellBatch.isEmpty()) transactionService.processSellBatch(buyBatch,sellBatch);
         } 
         catch(DataIntegrityViolationException e){
             String rootMsg = (e.getRootCause() != null) ? e.getRootCause().getMessage() : e.getMessage();
