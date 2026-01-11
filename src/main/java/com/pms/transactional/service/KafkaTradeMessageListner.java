@@ -26,7 +26,7 @@ public class KafkaTradeMessageListner {
     @Autowired
     private BatchProcessor batchProcessor;
 
-    @KafkaListener(id="tradesConsumer",topics = "valid-trades-topic", groupId = "trades", containerFactory = "tradekafkaListenerContainerFactory")
+    @KafkaListener(id="tradesConsumer",topics = "${app.trade.consumer.listening-topic}", groupId = "${app.trade.consumer.group-id}", containerFactory = "tradekafkaListenerContainerFactory")
     public void listen(List<TradeProto> trades) {
         trades.forEach(buffer::offer);
         batchProcessor.checkAndFlush();

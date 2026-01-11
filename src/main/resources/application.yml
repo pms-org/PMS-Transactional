@@ -3,9 +3,10 @@ spring:
     name: pms-transactional
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:db-instance-pms.cvk4yqey0ex7.us-east-2.rds.amazonaws.com}:${DB_PORT:5432}/${DB_NAME:pms-transactional}?reWriteBatchedInserts=true
-    username: ${DB_USER:postgres}
-    password: ${DB_PASS:PMS.2025}
+    url: ${DB_URL}
+    username: ${DB_USER} 
+    password: ${DB_PASS} 
+
 
   jpa:
     hibernate:
@@ -13,7 +14,7 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        jdbc.batch_size: 500
+        jdbc.batch_size: 500 
         order_inserts: true
         order_updates: true
         jdbc.batch_versioned_data: true
@@ -25,10 +26,15 @@ spring:
   kafka:
     admin:
       enabled: false
-    
+  
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS}
+    properties:
+      schema:
+        registry:
+          url: ${SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL}
       
 server:
-  port: 8084
+  port: ${SERVER_PORT} 
 
 logging:
   level:
@@ -48,3 +54,22 @@ management:
     web:
       exposure:
         include: "*"
+
+app:
+  buffer:
+    size: 150000
+  outbox:
+    target-latency-ms: 200
+    min-batch: 10
+    max-batch: 500
+  batch:
+    size: 5000
+  flush-interval-ms: 10000
+  transactions:
+    publishing-topic: ${APP_TRANSACTIONS_PUBLISHING_TOPIC}
+    consumer:
+      group-id: ${APP_TRANSACTIONS_CONSUMER_GROUP_ID}
+  trade:
+    consumer:
+      listening-topic: ${APP_TRADE_CONSUMER_LISTENING_TOPIC}
+      group-id: ${APP_TRADE_CONSUMER_GROUP_ID}

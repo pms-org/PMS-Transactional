@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -41,8 +42,11 @@ public class BatchProcessor implements SmartLifecycle{
     @Autowired
     private TransactionService transactionService;
 
-    private static final int BATCH_SIZE = 5000;
-    private static final long FLUSH_INTERVAL_MS = 10000;
+    @Value("${app.batch.size}")
+    private int BATCH_SIZE;
+
+    @Value("${app.flush-interval-ms}")
+    private long FLUSH_INTERVAL_MS;
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private boolean isRunning = false;

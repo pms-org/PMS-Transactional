@@ -32,7 +32,7 @@ public class OutboxEventProcessor {
                 TransactionProto proto = TransactionProto.parseFrom(event.getPayload());
 
                 kafkaTemplate.send(
-                        "transactions-topic",
+                        "${app.transactions.publishing-topic}",
                         event.getPortfolioId().toString(),
                         proto);
 

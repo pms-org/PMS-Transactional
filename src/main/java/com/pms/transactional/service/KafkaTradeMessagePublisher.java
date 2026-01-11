@@ -16,7 +16,7 @@ public class KafkaTradeMessagePublisher {
     public void publishTradeMessage(String key, TradeProto trade){
         System.out.println("Hi from publisher");
 
-        kafkaTemplate.send("valid-trades-topic", key, trade)
+        kafkaTemplate.send("${app.trade.consumer.listening-topic}", key, trade)
                 .whenComplete((res, ex) -> {
                     if (ex == null) {
                         System.out.println("Kafka Offset: " + res.getRecordMetadata());

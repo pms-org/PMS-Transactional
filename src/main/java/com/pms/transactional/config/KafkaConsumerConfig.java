@@ -22,10 +22,10 @@ import io.confluent.kafka.serializers.protobuf.KafkaProtobufDeserializer;
 @Configuration
 public class KafkaConsumerConfig {
 
-    @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
+    @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Value("${spring.kafka.properties.schema.registry.url:http://localhost:8081}")
+    @Value("${spring.kafka.properties.schema.registry.url}")
     private String schemaRegistryUrl;
 
     @Bean

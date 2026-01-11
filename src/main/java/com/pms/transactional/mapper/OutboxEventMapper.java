@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.pms.transactional.TransactionProto;
 import com.pms.transactional.entities.OutboxEventEntity;
 import com.pms.transactional.entities.TransactionsEntity;

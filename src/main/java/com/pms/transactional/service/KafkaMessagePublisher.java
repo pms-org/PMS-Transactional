@@ -14,7 +14,7 @@ public class KafkaMessagePublisher {
 
     public void publishMessage(String key, TransactionProto transaction) {
         System.out.println("Hi from publisher");
-        kafkaTemplate.send("transactions-topic",key,transaction)
+        kafkaTemplate.send("${app.transactions.publishing-topic}",key,transaction)
                 .whenComplete((res,ex)->{
                     if (ex == null){
                         System.out.println("Kafka Offset: " + res.getRecordMetadata());

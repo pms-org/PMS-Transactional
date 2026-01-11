@@ -7,13 +7,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class AdaptiveBatchSizer{
 
-    @Value("${app.outbox.target-latency-ms:200}")
+    @Value("${app.outbox.target-latency-ms}")
     private long targetLatencyMs;
 
-    @Value("${app.outbox.min-batch:10}")
+    @Value("${app.outbox.min-batch}")
     private int minBatchSize;
 
-    @Value("${app.outbox.max-batch:500}")
+    @Value("${app.outbox.max-batch}")
     private int maxBatchSize;
 
     private final AtomicInteger currentBatchSize = new AtomicInteger(10);
@@ -22,11 +22,11 @@ public class AdaptiveBatchSizer{
         int current = currentBatchSize.get();
         int next = current;
 
-        // Drain phase
+        
         if (recordsProcessed < current){
             next = minBatchSize;
         }
-        // Growth / shrink phase
+        
         else if(timeTakenMs < targetLatencyMs){
             next = Math.min((int)(current * 1.2), maxBatchSize);
         } 
