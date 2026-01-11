@@ -14,10 +14,10 @@ import com.pms.transactional.TradeProto;
 @Configuration
 public class BufferConfig{
     @Value("${app.buffer.size}")
-    private long bufferSize;
+    private int bufferSize;
     @Bean
     public BlockingQueue<TradeProto> protoBuffer() {
-        return new LinkedBlockingQueue<>(bufferSize);
+        return new LinkedBlockingQueue<TradeProto>(bufferSize);
     }
 
 }
