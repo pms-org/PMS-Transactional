@@ -18,7 +18,6 @@ import org.springframework.context.SmartLifecycle;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistrar;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.stereotype.Service;
@@ -48,7 +47,7 @@ public class BatchProcessor implements SmartLifecycle{
     @Value("${app.flush-interval-ms}")
     private long FLUSH_INTERVAL_MS;
 
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private boolean isRunning = false;
 
     public void checkAndFlush(){

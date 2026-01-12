@@ -28,6 +28,7 @@ spring:
       enabled: false
   
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS}
+
     properties:
       schema:
         registry:
@@ -69,7 +70,8 @@ app:
     publishing-topic: ${APP_TRANSACTIONS_PUBLISHING_TOPIC}
     consumer:
       group-id: ${APP_TRANSACTIONS_CONSUMER_GROUP_ID}
-  trade:
+  trades:
     consumer:
-      listening-topic: ${APP_TRADE_CONSUMER_LISTENING_TOPIC}
-      group-id: ${APP_TRADE_CONSUMER_GROUP_ID}
+      listening-topic: ${APP_TRADES_CONSUMER_LISTENING_TOPIC}
+      group-id: ${APP_TRADES_CONSUMER_GROUP_ID}
+

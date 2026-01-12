@@ -1,0 +1,5 @@
+{"properties": [{
+  "name": "spring.kafka.consumer-groups.trades",
+  "type": "java.lang.String",
+  "description": "A description for 'spring.kafka.consumer-groups.trades'"
+}]}

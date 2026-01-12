@@ -3,10 +3,8 @@ package com.pms.transactional.service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
-import org.apache.kafka.common.errors.SerializationException;
-import org.apache.kafka.common.errors.TimeoutException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +14,9 @@ import com.pms.transactional.entities.OutboxEventEntity;
 
 @Component
 public class OutboxEventProcessor {
+
+    @Value("${app.transactions.publishing-topic}")
+    private String PUBLISH_TOPIC;
 
     private KafkaTemplate<String, Object> kafkaTemplate;
 
@@ -32,7 +33,7 @@ public class OutboxEventProcessor {
                 TransactionProto proto = TransactionProto.parseFrom(event.getPayload());
 
                 kafkaTemplate.send(
-                        "${app.transactions.publishing-topic}",
+                        PUBLISH_TOPIC,
                         event.getPortfolioId().toString(),
                         proto);
 

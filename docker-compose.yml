@@ -15,7 +15,9 @@
 
 services:
   # pms-transactional:
-  #   image: tejosaran123/pms-transactional:latest
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
   #   hostname: pms-transactional
   #   container_name: pms-transactional
   #   ports:
@@ -24,72 +26,68 @@ services:
   #     - .env
   #   extra_hosts:
   #     - "host.docker.internal:host-gateway" 
-  #   environment:
-  #     - JAVA_OPTS=-Xms256m -Xmx512m
-  #     - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-  #     - SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL=http://schema-registry:8081
   #   depends_on:
   #     - kafka
   #     - schema-registry
   #   restart: unless-stopped
 
-    kafka:
-      image: confluentinc/cp-kafka:7.6.0
-      hostname: kafka
-      container_name: kafka
-      ports:
-        - "9092:9092"
-        - "29092:29092"
-        - "29093:29093"
-      environment:
-        KAFKA_PROCESS_ROLES: "broker,controller"
-        KAFKA_NODE_ID: 1
-        KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
-        KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT_HOST:PLAINTEXT,PLAINTEXT_DOCKER:PLAINTEXT,CONTROLLER:PLAINTEXT"
-        KAFKA_LISTENERS: "PLAINTEXT_HOST://0.0.0.0:9092,PLAINTEXT_DOCKER://0.0.0.0:29092,CONTROLLER://kafka:29093"
-        KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT_HOST://localhost:9092,PLAINTEXT_DOCKER://kafka:29092"
-        KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-        KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT_DOCKER"
-        KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-        KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-        KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-        CLUSTER_ID: "C-1Pn8WSTOamp-3aPkhjGQ"
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+      - "29093:29093"
+    environment:
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT_HOST:PLAINTEXT,PLAINTEXT_DOCKER:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_LISTENERS: "PLAINTEXT_HOST://0.0.0.0:9092,PLAINTEXT_DOCKER://0.0.0.0:29092,CONTROLLER://kafka:29093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT_HOST://localhost:9092,PLAINTEXT_DOCKER://kafka:29092"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT_DOCKER"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      CLUSTER_ID: "C-1Pn8WSTOamp-3aPkhjGQ"
 
 
-    schema-registry:
-      image: confluentinc/cp-schema-registry:7.6.0
-      hostname: schema-registry
-      container_name: schema-registry
-      depends_on:
-        - kafka
-      ports:
-        - "8081:8081"
-      environment:
-        SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:29092"
-        SCHEMA_REGISTRY_HOST_NAME: schema-registry
-        SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:29092"
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
 
-    # kafka-tools:
-    #   image: confluentinc/cp-kafka:7.6.0
-    #   hostname: kafka-tools
-    #   container_name: kafka-tools
-    #   depends_on:
-    #     - kafka
-    #   entrypoint: ["sleep", "infinity"]
-      # You can exec into this container and run kafka CLI tools
+  # kafka-tools:
+  #   image: confluentinc/cp-kafka:7.6.0
+  #   hostname: kafka-tools
+  #   container_name: kafka-tools
+  #   depends_on:
+  #     - kafka
+  #   entrypoint: ["sleep", "infinity"]
+    # You can exec into this container and run kafka CLI tools
 
-    control-center:
-      image: confluentinc/cp-enterprise-control-center:7.6.0
-      hostname: control-center
-      container_name: control-center
-      depends_on:
-        - kafka
-        - schema-registry
-      ports:
-        - "9021:9021"
-      environment:
-        CONTROL_CENTER_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:29092"
-        CONTROL_CENTER_SCHEMA_REGISTRY_URLS: "http://schema-registry:8081"
-        CONTROL_CENTER_CONNECT_CLUSTER: ""
-        CONTROL_CENTER_REPLICATION_FACTOR: 1
-        PORT: 9021
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:7.6.0
+    hostname: control-center
+    container_name: control-center
+    depends_on:
+      - kafka
+      - schema-registry
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:29092"
+      CONTROL_CENTER_SCHEMA_REGISTRY_URLS: "http://schema-registry:8081"
+      CONTROL_CENTER_CONNECT_CLUSTER: ""
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      PORT: 9021

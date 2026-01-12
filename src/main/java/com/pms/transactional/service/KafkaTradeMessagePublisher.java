@@ -1,6 +1,7 @@
 package com.pms.transactional.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -9,14 +10,15 @@ import com.pms.transactional.TradeProto;
 @Service
 public class KafkaTradeMessagePublisher {
 
-    // @Qualifier("tradeKafkaTemplate")
     @Autowired
     private KafkaTemplate<String, Object> kafkaTemplate;
 
+    @Value("${app.trades.consumer.listening-topic}")
+    private  String TOPIC;
     public void publishTradeMessage(String key, TradeProto trade){
         System.out.println("Hi from publisher");
 
-        kafkaTemplate.send("${app.trade.consumer.listening-topic}", key, trade)
+        kafkaTemplate.send(TOPIC, key, trade)
                 .whenComplete((res, ex) -> {
                     if (ex == null) {
                         System.out.println("Kafka Offset: " + res.getRecordMetadata());

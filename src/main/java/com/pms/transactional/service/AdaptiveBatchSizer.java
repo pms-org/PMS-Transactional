@@ -16,7 +16,7 @@ public class AdaptiveBatchSizer{
     @Value("${app.outbox.max-batch}")
     private int maxBatchSize;
 
-    private final AtomicInteger currentBatchSize = new AtomicInteger(10);
+    private AtomicInteger currentBatchSize = new AtomicInteger(10);
 
     public void adjust(long timeTakenMs, int recordsProcessed){
         int current = currentBatchSize.get();

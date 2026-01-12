@@ -1,7 +1,5 @@
 package com.pms.transactional.controller;
 
-import java.time.ZoneOffset;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,10 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pms.transactional.TradeProto;
-import static com.pms.transactional.TradeProto.newBuilder;
-import com.pms.transactional.TransactionProto;
 import com.pms.transactional.dto.TradeDTO;
-import com.pms.transactional.dto.TransactionDTO;
 import com.pms.transactional.service.KafkaMessagePublisher;
 import com.pms.transactional.service.KafkaTradeMessagePublisher;
 

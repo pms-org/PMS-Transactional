@@ -18,9 +18,9 @@ public class OutboxDispatcher implements SmartLifecycle {
     @Autowired
     private InvalidTradesDao invalidTradesDao;
 
-    private final OutboxEventsDao outboxDao;
-    private final OutboxEventProcessor processor;
-    private final AdaptiveBatchSizer batchSizer;
+    private OutboxEventsDao outboxDao;
+    private OutboxEventProcessor processor;
+    private AdaptiveBatchSizer batchSizer;
 
     private volatile boolean running = false;
 
@@ -50,7 +50,7 @@ public class OutboxDispatcher implements SmartLifecycle {
                     Thread.sleep(3000); // wait ONLY on system failure
                 } else if (result.successfulIds().isEmpty()
                         && result.poisonPill() == null) {
-                    Thread.sleep(200); // soft wait (empty outbox)
+                    Thread.sleep(200); //  wait (empty outbox)
                 }
             } catch (Exception e) {
                 try {
