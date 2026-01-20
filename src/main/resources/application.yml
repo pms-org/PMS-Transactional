@@ -3,18 +3,18 @@ spring:
     name: pms-transactional
 
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USER} 
-    password: ${DB_PASS} 
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?reWriteBatchedInserts=true
+    username: ${DB_USERNAME} 
+    password: ${DB_PASSWORD} 
 
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: ${DB_DDL_AUTO:update}
+    show-sql: ${DB_SHOW_SQL:false}
     properties:
       hibernate:
-        jdbc.batch_size: 500 
+        jdbc.batch_size: ${TRANSACTIONAL_JDBC_BATCH_SIZE:500} 
         order_inserts: true
         order_updates: true
         jdbc.batch_versioned_data: true
@@ -27,15 +27,15 @@ spring:
     admin:
       enabled: false
   
-    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
 
     properties:
       schema:
         registry:
-          url: ${SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL}
+          url: ${SCHEMA_REGISTRY_URL}
       
 server:
-  port: ${SERVER_PORT} 
+  port: ${TRANSACTIONAL_SERVER_PORT:8084} 
 
 logging:
   level:
@@ -58,20 +58,22 @@ management:
 
 app:
   buffer:
-    size: 150000
+    size: ${TRANSACTIONAL_BUFFER_SIZE:50000}
   outbox:
-    target-latency-ms: 200
-    min-batch: 10
-    max-batch: 500
+    target-latency-ms: ${TRANSACTIONAL_OUTBOX_TARGET_LATENCY_MS:200}
+    min-batch: ${TRANSACTIONAL_OUTBOX_BATCH_MIN:200}
+    max-batch: ${TRANSACTIONAL_OUTBOX_BATCH_MAX:500}
   batch:
-    size: 5000
-  flush-interval-ms: 10000
+    size: ${TRANSACTIONAL_BATCH_SIZE:5000}
+  flush-interval-ms: ${TRANSACTIONAL_FLUSH_INTERVAL_MS:10000}
   transactions:
-    publishing-topic: ${APP_TRANSACTIONS_PUBLISHING_TOPIC}
+    publishing-topic: ${TRANSACTIONAL_TRANSACTIONS_PUBLISHING_TOPIC}
     consumer:
-      group-id: ${APP_TRANSACTIONS_CONSUMER_GROUP_ID}
+      group-id: ${TRANSACTIONAL_TRANSACTIONS_CONSUMER_GROUP_ID}
   trades:
     consumer:
-      listening-topic: ${APP_TRADES_CONSUMER_LISTENING_TOPIC}
-      group-id: ${APP_TRADES_CONSUMER_GROUP_ID}
+      dlt-topic: ${TRANSACTIONAL_TRADES_CONSUMER_DLT_TOPIC}
+      consumer-id: ${TRANSACTIONAL_TRADES_CONSUMER_CONSUMER_ID}
+      listening-topic: ${TRANSACTIONAL_TRADES_CONSUMER_LISTENING_TOPIC}
+      group-id: ${TRANSACTIONAL_TRADES_CONSUMER_GROUP_ID}
 

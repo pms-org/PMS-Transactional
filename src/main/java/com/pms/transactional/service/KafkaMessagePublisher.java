@@ -5,7 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import com.pms.transactional.TransactionProto;
+import com.pms.transactional.Transaction;
 
 @Service
 public class KafkaMessagePublisher {
@@ -16,7 +16,7 @@ public class KafkaMessagePublisher {
     @Value("${app.transactions.publishing-topic}")
     private static String TOPIC;
 
-    public void publishMessage(String key, TransactionProto transaction) {
+    public void publishMessage(String key, Transaction transaction) {
         System.out.println("Hi from publisher");
         kafkaTemplate.send(TOPIC,key,transaction)
                 .whenComplete((res,ex)->{

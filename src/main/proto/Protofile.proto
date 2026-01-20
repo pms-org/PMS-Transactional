@@ -7,22 +7,23 @@ option java_multiple_files = true;
 
 import "google/protobuf/timestamp.proto";
 
-message TradeProto {
-  string portfolio_id = 1;
-  string trade_id = 2;
+message Trade {
+  string portfolioId = 1;
+  string tradeId = 2;
   string symbol = 3;
   string side = 4;
-  double price_per_stock = 5; 
+  double pricePerStock = 5; 
   int64 quantity = 6;
   google.protobuf.Timestamp timestamp = 7;
 }
 
-message TransactionProto {
-  string transaction_id = 1; 
-  string portfolio_id = 2;
+
+message Transaction {
+  string transactionId = 1; 
+  string portfolioId = 2;
   string symbol = 3;
   string side =4;
-  string buy_price = 5;
-  string sell_price = 6;
+  string buyPrice = 5;
+  string sellPrice = 6;
   int64 quantity = 7;
 }

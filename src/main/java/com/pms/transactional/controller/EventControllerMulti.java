@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.pms.transactional.TradeProto;
+import com.pms.transactional.Trade;
 import com.pms.transactional.dto.TradeDTO;
 import com.pms.transactional.service.KafkaTradeMessagePublisher;
 
@@ -27,7 +27,7 @@ public class EventControllerMulti{
         System.out.println("Publishing " + trades.size() + " trade messages");
         try {
             for (TradeDTO trade : trades) {
-                TradeProto tradeProto = convertDTOToProto(trade);
+                Trade tradeProto = convertDTOToProto(trade);
 
                 tradePublisher.publishTradeMessage(
                         trade.getPortfolioId().toString(),
@@ -43,8 +43,8 @@ public class EventControllerMulti{
         }
     }
 
-    private TradeProto convertDTOToProto(TradeDTO trade) {
-        return TradeProto.newBuilder()
+    private Trade convertDTOToProto(TradeDTO trade) {
+        return Trade.newBuilder()
                 .setTradeId(trade.getTradeId().toString())
                 .setPortfolioId(trade.getPortfolioId().toString())
                 .setSymbol(trade.getSymbol())

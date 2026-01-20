@@ -21,8 +21,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.pms.transactional.TradeProto;
-import com.pms.transactional.TransactionProto;
+import com.pms.transactional.Trade;
+import com.pms.transactional.Transaction;
 import com.pms.transactional.dao.BatchInsertDao;
 import com.pms.transactional.dao.TransactionDao;
 import com.pms.transactional.entities.InvalidTradesEntity;
@@ -49,7 +49,7 @@ public class TransactionService {
     Logger logger = LoggerFactory.getLogger(TransactionService.class);
 
     @Transactional
-    public void processUnifiedBatch(List<TradeProto> buyBatch, List<TradeProto> sellBatch) {
+    public void processUnifiedBatch(List<Trade> buyBatch, List<Trade> sellBatch) {
         List<TradesEntity> allTrades = new ArrayList<>();
         List<TransactionsEntity> allTransactions = new ArrayList<>();
         List<OutboxEventEntity> allOutboxEvents = new ArrayList<>();
@@ -57,7 +57,7 @@ public class TransactionService {
         Map<String, List<TransactionsEntity>> currentBatchInventory = new HashMap<>();
         Set<TransactionsEntity> modifiedDbBuys = new LinkedHashSet<>();
         if (!buyBatch.isEmpty()) {
-            for (TradeProto newBuyTrade : buyBatch) {
+            for (Trade newBuyTrade : buyBatch) {
                 TransactionsEntity buyTx = processBuy(newBuyTrade, allTrades, allTransactions, allOutboxEvents);
                 String inventoryKey = buyTx.getTrade().getPortfolioId() + "_" + buyTx.getTrade().getSymbol();
                 currentBatchInventory.computeIfAbsent(inventoryKey, k -> new ArrayList<>()).add(buyTx);
@@ -78,7 +78,7 @@ public class TransactionService {
                 new ArrayList<>(symbols), TradeSide.BUY);
             
 
-            for (TradeProto sellProto : sellBatch) {
+            for (Trade sellProto : sellBatch) {
                 processSell(sellProto, eligibleBuys, currentBatchInventory, 
                                     allTrades, allTransactions, allOutboxEvents, modifiedDbBuys,allInvalidTrades);
 
@@ -104,7 +104,7 @@ public class TransactionService {
     }
 
 
-    public TransactionsEntity processBuy(TradeProto trade, List<TradesEntity> trades, List<TransactionsEntity> transactions,List<OutboxEventEntity> outboxEvents) {
+    public TransactionsEntity processBuy(Trade trade, List<TradesEntity> trades, List<TransactionsEntity> transactions,List<OutboxEventEntity> outboxEvents) {
 
         UUID tradeId = UUID.fromString(trade.getTradeId());
 
@@ -129,7 +129,7 @@ public class TransactionService {
         buyTxn.setQuantity(trade.getQuantity());
         transactions.add(buyTxn);
 
-        TransactionProto transactionProto = transactionMapper.toProto(buyTxn);
+        Transaction transactionProto = transactionMapper.toProto(buyTxn);
         OutboxEventEntity event = new OutboxEventEntity();
         String outboxKey = transactionProto.getTransactionId();
         event.setTransactionOutboxId(UUID.nameUUIDFromBytes(outboxKey.getBytes()));
@@ -144,7 +144,7 @@ public class TransactionService {
         return buyTxn;
     }
 
-    public void processSell(TradeProto trade,List<TransactionsEntity> dbInventory, Map<String, List<TransactionsEntity>> newBuyTransactions,List<TradesEntity> trades, List<TransactionsEntity> transactions,List<OutboxEventEntity> outboxEvents,Set<TransactionsEntity> modifiedDbBuys,List<InvalidTradesEntity> invalidTrades) {
+    public void processSell(Trade trade,List<TransactionsEntity> dbInventory, Map<String, List<TransactionsEntity>> newBuyTransactions,List<TradesEntity> trades, List<TransactionsEntity> transactions,List<OutboxEventEntity> outboxEvents,Set<TransactionsEntity> modifiedDbBuys,List<InvalidTradesEntity> invalidTrades) {
     
         UUID tradeId = UUID.fromString(trade.getTradeId());
         UUID portfolioId = UUID.fromString(trade.getPortfolioId());
@@ -209,7 +209,7 @@ public class TransactionService {
             sellTransaction.setQuantity(matched);
             transactions.add(sellTransaction);
 
-            TransactionProto proto = transactionMapper.toProto(sellTransaction);
+            Transaction proto = transactionMapper.toProto(sellTransaction);
             OutboxEventEntity event = new OutboxEventEntity();
             event.setTransactionOutboxId(UUID.nameUUIDFromBytes(proto.getTransactionId().getBytes()));
             event.setAggregateId(sellTransaction.getTransactionId());
@@ -225,7 +225,7 @@ public class TransactionService {
         
     }
 
-    public void handleInvalid(TradeProto trade, List<InvalidTradesEntity> invalidTrades, String errorMessage) {
+    public void handleInvalid(Trade trade, List<InvalidTradesEntity> invalidTrades, String errorMessage) {
         InvalidTradesEntity invalidTrade = new InvalidTradesEntity();
         String key = trade.getTradeId();
         invalidTrade.setInvalidTradeId(UUID.nameUUIDFromBytes(key.getBytes()));

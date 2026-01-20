@@ -5,7 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import com.pms.transactional.TradeProto;
+import com.pms.transactional.Trade;
 
 @Service
 public class KafkaTradeMessagePublisher {
@@ -15,7 +15,7 @@ public class KafkaTradeMessagePublisher {
 
     @Value("${app.trades.consumer.listening-topic}")
     private  String TOPIC;
-    public void publishTradeMessage(String key, TradeProto trade){
+    public void publishTradeMessage(String key, Trade trade){
         System.out.println("Hi from publisher");
 
         kafkaTemplate.send(TOPIC, key, trade)

@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
-import com.pms.transactional.TransactionProto;
+import com.pms.transactional.Transaction;
 
 import jakarta.transaction.Transactional;
 
@@ -16,7 +16,7 @@ public class KafkaMessageListner {
 
     @Transactional
     @KafkaListener(topics ="${app.transactions.publishing-topic}", groupId = "${app.transactions.consumer.group-id}", containerFactory = "kafkaListenerContainerFactory")
-    public void consume1(TransactionProto transaction){
+    public void consume1(Transaction transaction){
         try {
             logger.info("Consumer message (parsed): {}", transaction);
         } catch (Exception e) {

@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -13,8 +14,8 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
 
-import com.pms.transactional.TradeProto;
-import com.pms.transactional.TransactionProto;
+import com.pms.transactional.Trade;
+import com.pms.transactional.Transaction;
 
 import io.confluent.kafka.serializers.protobuf.KafkaProtobufDeserializer;
 
@@ -36,20 +37,20 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaProtobufDeserializer.class);
         props.put("schema.registry.url",schemaRegistryUrl);
-        props.put("specific.protobuf.value.type", TransactionProto.class.getName());
+        props.put("specific.protobuf.value.type", Transaction.class.getName());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         return props;
     }
 
     @Bean
-    public ConsumerFactory<String, TransactionProto> consumerFactory() {
+    public ConsumerFactory<String, Transaction> consumerFactory() {
         return new DefaultKafkaConsumerFactory<>(transactionConsumerConfigs());
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, TransactionProto> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, TransactionProto> factory = new ConcurrentKafkaListenerContainerFactory<>();
+    public ConcurrentKafkaListenerContainerFactory<String, Transaction> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, Transaction> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
         factory.setConcurrency(5);
         factory.getContainerProperties().setPollTimeout(3000);
@@ -63,22 +64,22 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "trades");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaProtobufDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
         props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,1000);
         props.put("schema.registry.url", schemaRegistryUrl);
-        props.put("specific.protobuf.value.type", TradeProto.class.getName());
+        props.put("specific.protobuf.value.type", Trade.class.getName());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         return props;
     }
 
     @Bean
-    public ConsumerFactory<String, TradeProto> tradeConsumerFactory() {
+    public ConsumerFactory<String, Trade> tradeConsumerFactory() {
         return new DefaultKafkaConsumerFactory<>(tradeConsumerConfigs());
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, TradeProto> tradekafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, TradeProto> factory = new ConcurrentKafkaListenerContainerFactory<>();
+    public ConcurrentKafkaListenerContainerFactory<String, Trade> tradekafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, Trade> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(tradeConsumerFactory());
         factory.setConcurrency(5);
         factory.getContainerProperties().setPollTimeout(3000);

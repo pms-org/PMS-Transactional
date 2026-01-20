@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Component;
 
-import com.pms.transactional.TransactionProto;
+import com.pms.transactional.Transaction;
 import com.pms.transactional.entities.OutboxEventEntity;
 import com.pms.transactional.entities.TransactionsEntity;
 
@@ -16,7 +16,7 @@ public class OutboxEventMapper{
     
     public OutboxEventEntity toEntity(
             TransactionsEntity txn,
-            TransactionProto proto) {
+            Transaction proto) {
 
         OutboxEventEntity entity = new OutboxEventEntity();
         entity.setAggregateId(txn.getTransactionId());

@@ -9,7 +9,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.pms.transactional.TransactionProto;
+import com.pms.transactional.Transaction;
 import com.pms.transactional.entities.OutboxEventEntity;
 
 @Component
@@ -30,7 +30,7 @@ public class OutboxEventProcessor {
 
         for (OutboxEventEntity event : events) {
             try {
-                TransactionProto proto = TransactionProto.parseFrom(event.getPayload());
+                Transaction proto = Transaction.parseFrom(event.getPayload());
 
                 kafkaTemplate.send(
                         PUBLISH_TOPIC,

@@ -6,8 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.google.protobuf.Timestamp;
-import com.pms.transactional.TradeProto;
-import com.pms.transactional.TransactionProto;
+import com.pms.transactional.Trade;
+import com.pms.transactional.Transaction;
 import com.pms.transactional.entities.TransactionsEntity;
 
 @Component
@@ -16,8 +16,8 @@ public class TransactionMapper{
     @Autowired
     TradeMapper tradeMapper;
     
-    public TransactionProto toProto(TransactionsEntity transaction){
-        TradeProto trade = TradeProto.newBuilder()
+    public Transaction toProto(TransactionsEntity transaction){
+        Trade trade = Trade.newBuilder()
                             .setTradeId(transaction.getTrade().getTradeId().toString())
                             .setPortfolioId(transaction.getTrade().getPortfolioId().toString())
                             .setSymbol(transaction.getTrade().getSymbol())
@@ -30,7 +30,7 @@ public class TransactionMapper{
                                 .build())
                             .build();
 
-        TransactionProto transactionProto = TransactionProto.newBuilder()
+        Transaction transactionProto = Transaction.newBuilder()
                                         .setTransactionId(transaction.getTransactionId().toString())
                                         .setPortfolioId(transaction.getTrade().getPortfolioId().toString())
                                         .setSymbol(transaction.getTrade().getSymbol())

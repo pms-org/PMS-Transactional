@@ -7,14 +7,14 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
-import com.pms.transactional.TradeProto;
+import com.pms.transactional.Trade;
 import com.pms.transactional.entities.TradesEntity;
 import com.pms.transactional.enums.TradeSide;
 
 @Component
 public class TradeMapper {
 
-    public TradesEntity toEntity(TradeProto t) {
+    public TradesEntity toEntity(Trade t) {
 
         TradesEntity e = new TradesEntity();
 

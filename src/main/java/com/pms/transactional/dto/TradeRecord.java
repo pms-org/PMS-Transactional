@@ -1,6 +1,6 @@
 package com.pms.transactional.dto;
 
-import com.pms.transactional.TradeProto;
+import com.pms.transactional.Trade;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -8,5 +8,5 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public class TradeRecord {
-    private TradeProto trade;
+    private Trade trade;
 }
