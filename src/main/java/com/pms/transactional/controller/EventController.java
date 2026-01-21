@@ -10,16 +10,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.pms.transactional.Trade;
 import com.pms.transactional.dto.TradeDTO;
-import com.pms.transactional.service.KafkaMessagePublisher;
 import com.pms.transactional.service.KafkaTradeMessagePublisher;
 
 @RequestMapping
 @RestController
 
 public class EventController {
-
-    @Autowired
-    private KafkaMessagePublisher publisher;
 
     @Autowired
     private KafkaTradeMessagePublisher tradePublisher;
