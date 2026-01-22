@@ -32,8 +32,6 @@ import com.pms.transactional.entities.TransactionsEntity;
 import com.pms.transactional.enums.TradeSide;
 import com.pms.transactional.mapper.TransactionMapper;
 
-
-
 @Service
 public class TransactionService {
 
@@ -64,47 +62,48 @@ public class TransactionService {
             }
         }
 
-        if (!sellBatch.isEmpty()){
+        if (!sellBatch.isEmpty()) {
 
             Set<UUID> portfolioIds = sellBatch.stream()
-                .map(record -> UUID.fromString(record.getPortfolioId()))
-                .collect(Collectors.toSet());
+                    .map(record -> UUID.fromString(record.getPortfolioId()))
+                    .collect(Collectors.toSet());
 
             Set<String> symbols = sellBatch.stream()
-                .map(record -> record.getSymbol())
-                .collect(Collectors.toSet());
+                    .map(record -> record.getSymbol())
+                    .collect(Collectors.toSet());
 
             List<TransactionsEntity> eligibleBuys = transactionDao.findEligibleBuys(new ArrayList<>(portfolioIds),
-                new ArrayList<>(symbols), TradeSide.BUY);
-            
+                    new ArrayList<>(symbols), TradeSide.BUY);
 
             for (Trade sellProto : sellBatch) {
-                processSell(sellProto, eligibleBuys, currentBatchInventory, 
-                                    allTrades, allTransactions, allOutboxEvents, modifiedDbBuys,allInvalidTrades);
+                processSell(sellProto, eligibleBuys, currentBatchInventory,
+                        allTrades, allTransactions, allOutboxEvents, modifiedDbBuys, allInvalidTrades);
 
             }
         }
-            logger.info("Processing completed.. saving to database");
-            
-            if (!allTrades.isEmpty()) batchInsertDao.batchInsertTrades(allTrades);
-            if (!allTransactions.isEmpty()) batchInsertDao.batchInsertTransactions(allTransactions);
-            if (!allOutboxEvents.isEmpty()) batchInsertDao.batchInsertOutboxEvents(allOutboxEvents);
+        logger.info("Processing completed.. saving to database");
 
-            if (!modifiedDbBuys.isEmpty()) {
-                    batchInsertDao.batchUpdateBuyQuantities(new ArrayList<>(modifiedDbBuys));
-                }
-            logger.info("invalid trades started ...");
-            if (!allInvalidTrades.isEmpty()) {
-                batchInsertDao.batchInsertInvalidTrades(allInvalidTrades);
-            }
+        if (!allTrades.isEmpty())
+            batchInsertDao.batchInsertTrades(allTrades);
+        if (!allTransactions.isEmpty())
+            batchInsertDao.batchInsertTransactions(allTransactions);
+        if (!allOutboxEvents.isEmpty())
+            batchInsertDao.batchInsertOutboxEvents(allOutboxEvents);
 
-            
-        logger.info("Batch Processed: Trades={}, Transactions={}, Invalid={}", 
-            allTrades.size(), allTransactions.size(), allInvalidTrades.size());
+        if (!modifiedDbBuys.isEmpty()) {
+            batchInsertDao.batchUpdateBuyQuantities(new ArrayList<>(modifiedDbBuys));
+        }
+        logger.info("invalid trades started ...");
+        if (!allInvalidTrades.isEmpty()) {
+            batchInsertDao.batchInsertInvalidTrades(allInvalidTrades);
+        }
+
+        logger.info("Batch Processed: Trades={}, Transactions={}, Invalid={}",
+                allTrades.size(), allTransactions.size(), allInvalidTrades.size());
     }
 
-
-    public TransactionsEntity processBuy(Trade trade, List<TradesEntity> trades, List<TransactionsEntity> transactions,List<OutboxEventEntity> outboxEvents) {
+    public TransactionsEntity processBuy(Trade trade, List<TradesEntity> trades, List<TransactionsEntity> transactions,
+            List<OutboxEventEntity> outboxEvents) {
 
         UUID tradeId = UUID.fromString(trade.getTradeId());
 
@@ -140,39 +139,43 @@ public class TransactionService {
 
         event.setCreatedAt(LocalDateTime.now());
         outboxEvents.add(event);
-        
+
         return buyTxn;
     }
 
-    public void processSell(Trade trade,List<TransactionsEntity> dbInventory, Map<String, List<TransactionsEntity>> newBuyTransactions,List<TradesEntity> trades, List<TransactionsEntity> transactions,List<OutboxEventEntity> outboxEvents,Set<TransactionsEntity> modifiedDbBuys,List<InvalidTradesEntity> invalidTrades) {
-    
+    public void processSell(Trade trade, List<TransactionsEntity> dbInventory,
+            Map<String, List<TransactionsEntity>> newBuyTransactions, List<TradesEntity> trades,
+            List<TransactionsEntity> transactions, List<OutboxEventEntity> outboxEvents,
+            Set<TransactionsEntity> modifiedDbBuys, List<InvalidTradesEntity> invalidTrades) {
+
         UUID tradeId = UUID.fromString(trade.getTradeId());
         UUID portfolioId = UUID.fromString(trade.getPortfolioId());
         long qtyToSell = trade.getQuantity();
         LocalDateTime sellTimestamp = LocalDateTime.ofInstant(
                 Instant.ofEpochSecond(trade.getTimestamp().getSeconds(), trade.getTimestamp().getNanos()),
                 ZoneOffset.UTC);
-        String key = portfolioId +"_"+ trade.getSymbol();
+        String key = portfolioId + "_" + trade.getSymbol();
 
         List<TransactionsEntity> dbTransactions = dbInventory.stream()
-                                                        .filter(b -> (b.getTrade().getPortfolioId() + "_" + b.getTrade().getSymbol()).equals(key))
-                                                        .collect(Collectors.toList());
+                .filter(b -> (b.getTrade().getPortfolioId() + "_" + b.getTrade().getSymbol()).equals(key))
+                .collect(Collectors.toList());
 
-        List<TransactionsEntity> currentBatchTransactions = newBuyTransactions.getOrDefault(key, Collections.emptyList());
+        List<TransactionsEntity> currentBatchTransactions = newBuyTransactions.getOrDefault(key,
+                Collections.emptyList());
 
         List<TransactionsEntity> inventory = new ArrayList<>();
         inventory.addAll(dbTransactions);
         inventory.addAll(currentBatchTransactions);
         inventory.sort(Comparator.comparing(b -> b.getTrade().getTimestamp()));
 
-        if(inventory == null || inventory.isEmpty()){
+        if (inventory == null || inventory.isEmpty()) {
             handleInvalid(trade, invalidTrades, "No eligible previous buys avaliable for this sell trade");
             return;
         }
-        
+
         long totalAvailable = inventory.stream()
-            .filter(b -> b.getQuantity() > 0 && b.getTrade().getTimestamp().isBefore(sellTimestamp))
-            .mapToLong(TransactionsEntity::getQuantity).sum();
+                .filter(b -> b.getQuantity() > 0 && b.getTrade().getTimestamp().isBefore(sellTimestamp))
+                .mapToLong(TransactionsEntity::getQuantity).sum();
 
         if (totalAvailable < qtyToSell) {
             handleInvalid(trade, invalidTrades, "Insufficient quantity for " + key + ". Needed " + qtyToSell);
@@ -192,7 +195,8 @@ public class TransactionService {
         long remainingToMatch = qtyToSell;
 
         for (TransactionsEntity buyTx : inventory) {
-            if (buyTx.getQuantity() <= 0 || !buyTx.getTrade().getTimestamp().isBefore(sellTimestamp)) continue;
+            if (buyTx.getQuantity() <= 0 || !buyTx.getTrade().getTimestamp().isBefore(sellTimestamp))
+                continue;
 
             long matched = Math.min(buyTx.getQuantity(), remainingToMatch);
             buyTx.setQuantity(buyTx.getQuantity() - matched);
@@ -220,9 +224,10 @@ public class TransactionService {
             outboxEvents.add(event);
 
             remainingToMatch -= matched;
-            if (remainingToMatch <= 0) break;
+            if (remainingToMatch <= 0)
+                break;
         }
-        
+
     }
 
     public void handleInvalid(Trade trade, List<InvalidTradesEntity> invalidTrades, String errorMessage) {
@@ -230,7 +235,7 @@ public class TransactionService {
         String key = trade.getTradeId();
         invalidTrade.setInvalidTradeId(UUID.nameUUIDFromBytes(key.getBytes()));
         invalidTrade.setAggregateId(UUID.fromString(trade.getTradeId()));
-        invalidTrade.setPayload(trade.toByteArray());   
+        invalidTrade.setPayload(trade.toByteArray());
         invalidTrade.setErrorMessage(errorMessage);
 
         invalidTrades.add(invalidTrade);
