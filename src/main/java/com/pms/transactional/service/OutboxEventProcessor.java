@@ -35,7 +35,7 @@ public class OutboxEventProcessor {
                 kafkaTemplate.send(
                         PUBLISH_TOPIC,
                         event.getPortfolioId().toString(),
-                        proto);
+                        proto).get();
 
                 successfulIds.add(event.getTransactionOutboxId());
 

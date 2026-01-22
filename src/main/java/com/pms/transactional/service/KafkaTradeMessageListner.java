@@ -27,27 +27,19 @@ public class KafkaTradeMessageListner {
     private BatchProcessor batchProcessor;
 
     @Autowired
-    private KafkaTemplate<String, byte[]> kafkaTemplate;
+    private KafkaTemplate kafkaTemplate;
 
     @Value("${app.trades.consumer.dlt-topic}")
     private String dltTopic;
 
     @KafkaListener(id="${app.trades.consumer.consumer-id}",topics = "${app.trades.consumer.listening-topic}", groupId = "${app.trades.consumer.group-id}", containerFactory = "tradekafkaListenerContainerFactory")
-    public void listen(List<ConsumerRecord<String, byte[]>> trades) {
-        for(ConsumerRecord<String, byte[]> trade:trades){
-            try{
-                Trade tradeProto = Trade.parseFrom(trade.value());
-                boolean addedToBuffer = buffer.offer(tradeProto);
-
-                if (!addedToBuffer) {
-                    logger.error("Buffer full! Dropped trade at offset {}", trade.offset());
-                    batchProcessor.handleConsumerThread(false);
-                    break;
-                }
-            }
-            catch(InvalidProtocolBufferException e){
-                logger.error("Corrupt Protobuf at offset {}. Routing to DLT.", trade.offset());
-                kafkaTemplate.send(dltTopic,trade.key(),trade.value());
+    public void listen(List<Trade> trades) {
+        for(Trade trade:trades){
+            boolean addedToBuffer = buffer.offer(trade);
+            if (!addedToBuffer) {
+                logger.error("Buffer full!");
+                batchProcessor.handleConsumerThread(false);
+                break;
             }
         }
         
