@@ -10,10 +10,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Service;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.pms.transactional.Trade;
+import com.pms.transactional.wrapper.TradeRecord;
 
 @Service
 public class KafkaTradeMessageListner {
@@ -21,7 +23,7 @@ public class KafkaTradeMessageListner {
     Logger logger = LoggerFactory.getLogger(KafkaTradeMessageListner.class);
 
     @Autowired
-    private BlockingQueue<Trade> buffer;
+    private BlockingQueue<TradeRecord> buffer;
 
     @Autowired
     private BatchProcessor batchProcessor;
@@ -29,13 +31,10 @@ public class KafkaTradeMessageListner {
     @Autowired
     private KafkaTemplate kafkaTemplate;
 
-    @Value("${app.trades.consumer.dlt-topic}")
-    private String dltTopic;
-
     @KafkaListener(id="${app.trades.consumer.consumer-id}",topics = "${app.trades.consumer.listening-topic}", groupId = "${app.trades.consumer.group-id}", containerFactory = "tradekafkaListenerContainerFactory")
-    public void listen(List<Trade> trades) {
+    public void listen(List<Trade> trades,Acknowledgment ack) {
         for(Trade trade:trades){
-            boolean addedToBuffer = buffer.offer(trade);
+            boolean addedToBuffer = buffer.offer(new TradeRecord(trade,ack));
             if (!addedToBuffer) {
                 logger.error("Buffer full!");
                 batchProcessor.handleConsumerThread(false);

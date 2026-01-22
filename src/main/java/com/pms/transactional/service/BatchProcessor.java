@@ -18,11 +18,13 @@ import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
 
 import com.pms.transactional.Trade;
+import com.pms.transactional.wrapper.TradeRecord;
 
 
 @Service
@@ -36,7 +38,7 @@ public class BatchProcessor implements SmartLifecycle{
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private LinkedBlockingDeque<Trade> buffer;
+    private LinkedBlockingDeque<TradeRecord> buffer;
 
     @Autowired
     @Qualifier("batchExecutor")
@@ -78,12 +80,16 @@ public class BatchProcessor implements SmartLifecycle{
     public synchronized void flushBatch(){
         if(buffer.isEmpty()) return;
 
-        List<Trade> batch = new ArrayList<>(BATCH_SIZE);
+        List<TradeRecord> batch = new ArrayList<>(BATCH_SIZE);
         buffer.drainTo(batch, BATCH_SIZE);
 
+        List<Trade> batchTrades = batch.stream()
+                                        .map(TradeRecord::getTradeProto).toList();
+
         try{
-            Map<String, List<Trade>> grouped = batch.stream().collect(Collectors.groupingBy(Trade::getSide));
+            Map<String, List<Trade>> grouped = batchTrades.stream().collect(Collectors.groupingBy(Trade::getSide));
             transactionService.processUnifiedBatch(grouped.getOrDefault("BUY", List.of()), grouped.getOrDefault("SELL", List.of()));
+            batch.stream().map(TradeRecord::getAck).distinct().forEach(Acknowledgment::acknowledge);
         }
         catch(DataAccessResourceFailureException e) {
             logger.error("DB Connection failure. Pausing consumer.");
@@ -139,10 +145,10 @@ public class BatchProcessor implements SmartLifecycle{
         else{
             batchProcessorExecutor.execute(()->{
                 logger.info("Buffer is full.Flushing the buffer.");
-                while(buffer.remainingCapacity() < 0.2*totalBufferCapacity){
+                while(buffer.remainingCapacity() < 0.5*totalBufferCapacity){
                     flushBatch();
                 }
-                logger.info("20 percent of the buffer is freed. Resuming consumer..");
+                logger.info("50 percent of the buffer is freed. Resuming consumer..");
                 if(container != null){
                     container.resume();
                     logger.info("Consumer resumed..");

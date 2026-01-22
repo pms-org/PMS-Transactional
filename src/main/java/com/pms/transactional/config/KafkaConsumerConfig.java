@@ -66,6 +66,7 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaProtobufDeserializer.class);
         props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,1000);
+        props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 600000);
         props.put("schema.registry.url", schemaRegistryUrl);
         props.put("specific.protobuf.value.type", Trade.class.getName());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
@@ -85,7 +86,7 @@ public class KafkaConsumerConfig {
         factory.getContainerProperties().setPollTimeout(3000);
         factory.setBatchListener(true);
         factory.getContainerProperties()
-           .setAckMode(ContainerProperties.AckMode.BATCH);
+           .setAckMode(ContainerProperties.AckMode.MANUAL);
         return factory;
     }
 }
