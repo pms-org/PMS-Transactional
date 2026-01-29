@@ -83,6 +83,10 @@ public class TransactionService {
         }
         logger.info("Processing completed.. saving to database");
 
+        if (!modifiedDbBuys.isEmpty()) {
+            batchInsertDao.batchUpdateBuyQuantities(new ArrayList<>(modifiedDbBuys));
+        }
+
         if (!allTrades.isEmpty())
             batchInsertDao.batchInsertTrades(allTrades);
         if (!allTransactions.isEmpty())
@@ -90,9 +94,6 @@ public class TransactionService {
         if (!allOutboxEvents.isEmpty())
             batchInsertDao.batchInsertOutboxEvents(allOutboxEvents);
 
-        if (!modifiedDbBuys.isEmpty()) {
-            batchInsertDao.batchUpdateBuyQuantities(new ArrayList<>(modifiedDbBuys));
-        }
         logger.info("invalid trades started ...");
         if (!allInvalidTrades.isEmpty()) {
             batchInsertDao.batchInsertInvalidTrades(allInvalidTrades);
