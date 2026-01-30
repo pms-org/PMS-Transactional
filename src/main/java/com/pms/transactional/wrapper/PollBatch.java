@@ -1,5 +1,7 @@
 package com.pms.transactional.wrapper;
 
+import java.util.List;
+
 import org.springframework.kafka.support.Acknowledgment;
 
 import com.pms.transactional.Trade;
@@ -11,7 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
-public class TradeRecord {
-    Trade tradeProto;
+public class PollBatch {
+    List<Trade> tradeProtos;
     Acknowledgment ack;
 }

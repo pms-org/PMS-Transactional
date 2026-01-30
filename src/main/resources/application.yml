@@ -58,7 +58,7 @@ management:
 
 app:
   buffer:
-    size: ${TRANSACTIONAL_BUFFER_SIZE:50000}
+    size: ${TRANSACTIONAL_BUFFER_SIZE:50}
   outbox:
     target-latency-ms: ${TRANSACTIONAL_OUTBOX_TARGET_LATENCY_MS:200}
     min-batch: ${TRANSACTIONAL_OUTBOX_BATCH_MIN:200}

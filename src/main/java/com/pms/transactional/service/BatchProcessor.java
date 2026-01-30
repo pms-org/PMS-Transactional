@@ -1,30 +1,30 @@
-package com.pms.transactional.service;
+    package com.pms.transactional.service;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.ScheduledFuture;
-import java.util.stream.Collectors;
+    import java.time.Duration;
+    import java.util.ArrayList;
+    import java.util.List;
+    import java.util.Map;
+    import java.util.concurrent.LinkedBlockingDeque;
+    import java.util.concurrent.ScheduledFuture;
+    import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.SmartLifecycle;
-import org.springframework.dao.DataAccessResourceFailureException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
-import org.springframework.kafka.listener.MessageListenerContainer;
-import org.springframework.kafka.support.Acknowledgment;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-import org.springframework.stereotype.Service;
+    import org.slf4j.Logger;
+    import org.slf4j.LoggerFactory;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.beans.factory.annotation.Qualifier;
+    import org.springframework.beans.factory.annotation.Value;
+    import org.springframework.context.SmartLifecycle;
+    import org.springframework.dao.DataAccessResourceFailureException;
+    import org.springframework.jdbc.core.JdbcTemplate;
+    import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
+    import org.springframework.kafka.listener.MessageListenerContainer;
+    import org.springframework.kafka.support.Acknowledgment;
+    import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+    import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+    import org.springframework.stereotype.Service;
 
-import com.pms.transactional.Trade;
-import com.pms.transactional.wrapper.TradeRecord;
+    import com.pms.transactional.Trade;
+import com.pms.transactional.wrapper.PollBatch;
 
 
 @Service
@@ -38,7 +38,7 @@ public class BatchProcessor implements SmartLifecycle{
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private LinkedBlockingDeque<TradeRecord> buffer;
+    private LinkedBlockingDeque<PollBatch> buffer;
 
     @Autowired
     @Qualifier("batchExecutor")
@@ -51,7 +51,7 @@ public class BatchProcessor implements SmartLifecycle{
     @Autowired
     @Qualifier("dbRecoveryScheduler")
     private ThreadPoolTaskScheduler dbRecoveryScheduler;
-   
+
     @Autowired
     private TransactionService transactionService;
 
@@ -79,22 +79,33 @@ public class BatchProcessor implements SmartLifecycle{
 
     public synchronized void flushBatch(){
         if(buffer.isEmpty()) return;
-
-        List<TradeRecord> batch = new ArrayList<>(BATCH_SIZE);
-        buffer.drainTo(batch, BATCH_SIZE);
-
-        List<Trade> batchTrades = batch.stream()
-                                        .map(TradeRecord::getTradeProto).toList();
-
+        List<PollBatch> pollsInTheBatch = new ArrayList<>();
+        List<Trade> batchTrades = new ArrayList<>(BATCH_SIZE);
+        int currentRecordCount = 0;
+        while (currentRecordCount < BATCH_SIZE) {
+            PollBatch nextPoll = buffer.peek();
+            if (nextPoll == null) break;
+            if (currentRecordCount + nextPoll.getTradeProtos().size() > 5000 && !pollsInTheBatch.isEmpty()) {
+                break; 
+            }
+            PollBatch poll = buffer.poll();
+            pollsInTheBatch.add(poll);
+            batchTrades.addAll(poll.getTradeProtos());
+            currentRecordCount += poll.getTradeProtos().size();
+        }
         try{
             Map<String, List<Trade>> grouped = batchTrades.stream().collect(Collectors.groupingBy(Trade::getSide));
             transactionService.processUnifiedBatch(grouped.getOrDefault("BUY", List.of()), grouped.getOrDefault("SELL", List.of()));
-            batch.stream().map(TradeRecord::getAck).distinct().forEach(Acknowledgment::acknowledge);
+            pollsInTheBatch.forEach(poll->poll.getAck().acknowledge());
+
+            if(isRecovering && buffer.size()<=0.5*totalBufferCapacity){
+                resumeConsumer();
+            }   
         }
         catch(DataAccessResourceFailureException e) {
             logger.error("DB Connection failure. Pausing consumer.");
-            for(int i=batch.size()-1; i>=0;i--){
-                buffer.offerFirst(batch.get(i));
+            for(int i=pollsInTheBatch.size()-1; i>=0;i--){
+                buffer.offerFirst(pollsInTheBatch.get(i));
             }
             handleConsumerThread(true);
             throw e;
@@ -125,16 +136,14 @@ public class BatchProcessor implements SmartLifecycle{
     }
 
     
-
     public void handleConsumerThread(boolean startDaemon){
         synchronized(this){
-            if(isRecovering){
-                return;
-            }
+            if(isRecovering) return;
             isRecovering=true;
         }
+
         MessageListenerContainer container = kafkaListenerEndpointRegistry.getListenerContainer(CONSUMER_ID);
-        if(container != null){
+        if(container != null && !container.isContainerPaused()){
             container.pause();
             logger.warn("Kafka Consumer paused.");
         }
@@ -142,26 +151,18 @@ public class BatchProcessor implements SmartLifecycle{
             logger.warn(" Starting background probe daemon...");
             startDaemon();
         }
-        else{
-            batchProcessorExecutor.execute(()->{
-                logger.info("Buffer is full.Flushing the buffer.");
-                while(buffer.remainingCapacity() < 0.5*totalBufferCapacity){
-                    flushBatch();
-                }
-                logger.info("50 percent of the buffer is freed. Resuming consumer..");
-                if(container != null){
-                    container.resume();
-                    logger.info("Consumer resumed..");
-                }
-                synchronized(this){
-                    if(!isRecovering){
-                        return;
-                    }
-                    isRecovering=false;
-                }
-            }); 
-        }
         
+    }
+
+    private void resumeConsumer(){
+        MessageListenerContainer container = kafkaListenerEndpointRegistry.getListenerContainer(CONSUMER_ID);
+        if (container != null && container.isContainerPaused()) {
+            container.resume();
+            logger.info("Buffer cleared to 50% ({} batches). Resuming consumer.", buffer.size());
+            synchronized(this) {
+                isRecovering = false;
+            }
+        }
     }
         
     private void startDaemon() {
