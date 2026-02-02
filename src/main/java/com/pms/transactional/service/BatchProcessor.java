@@ -6,7 +6,9 @@
     import java.util.Map;
     import java.util.concurrent.LinkedBlockingDeque;
     import java.util.concurrent.ScheduledFuture;
-    import java.util.stream.Collectors;
+    import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
     import org.slf4j.Logger;
     import org.slf4j.LoggerFactory;
@@ -67,56 +69,72 @@ public class BatchProcessor implements SmartLifecycle{
     @Value("${app.trades.consumer.consumer-id}")
     private String CONSUMER_ID;
 
+    private final AtomicInteger totalTradeCount = new AtomicInteger(0);
+
     private boolean isRecovering = false;
     private ScheduledFuture<?> recoveryTask; 
     private boolean isRunning = false;
 
-    public void checkAndFlush(){
-        if(buffer.size() >= BATCH_SIZE){
+    public void checkAndFlush(List<Trade> trades, Acknowledgment ack) {
+        int incomingTradeCount = trades.size();
+
+        if (buffer.size() >= 0.8*totalBufferCapacity) {
+            logger.warn("Buffer reached 80 percent. Pausing and clearing 50 percent");
+            handleConsumerThread(false);
+            while(buffer.size() > (totalBufferCapacity / 2)){
+                flushBatch();
+            }
+            resumeConsumer();
+        }
+
+        if(buffer.offer(new PollBatch(trades, ack))){
+            totalTradeCount.addAndGet(incomingTradeCount);
+        }
+
+        if(totalTradeCount.get() >= BATCH_SIZE){
             batchProcessorExecutor.execute(this::flushBatch);
         }
     }
 
     public synchronized void flushBatch(){
-        if(buffer.isEmpty()) return;
+        if(buffer.isEmpty()){
+            return;
+        }
+        
         List<PollBatch> pollsInTheBatch = new ArrayList<>();
         List<Trade> batchTrades = new ArrayList<>(BATCH_SIZE);
         int currentRecordCount = 0;
-        while (currentRecordCount < BATCH_SIZE) {
+        while(currentRecordCount < BATCH_SIZE){
             PollBatch nextPoll = buffer.peek();
             if (nextPoll == null) break;
-            if (currentRecordCount + nextPoll.getTradeProtos().size() > 5000 && !pollsInTheBatch.isEmpty()) {
-                break; 
-            }
+            if (currentRecordCount + nextPoll.getTradeProtos().size() > 5000 && !pollsInTheBatch.isEmpty()) break; 
+            
             PollBatch poll = buffer.poll();
             pollsInTheBatch.add(poll);
             batchTrades.addAll(poll.getTradeProtos());
             currentRecordCount += poll.getTradeProtos().size();
         }
+        if(batchTrades.isEmpty()) return;
         try{
             Map<String, List<Trade>> grouped = batchTrades.stream().collect(Collectors.groupingBy(Trade::getSide));
             transactionService.processUnifiedBatch(grouped.getOrDefault("BUY", List.of()), grouped.getOrDefault("SELL", List.of()));
             pollsInTheBatch.forEach(poll->poll.getAck().acknowledge());
-
-            if(isRecovering && buffer.size()<=0.5*totalBufferCapacity){
-                resumeConsumer();
-            }   
-        }
-        catch(DataAccessResourceFailureException e) {
+            totalTradeCount.addAndGet(-batchTrades.size());
+        } 
+        catch(DataAccessResourceFailureException e){
             logger.error("DB Connection failure. Pausing consumer.");
             for(int i=pollsInTheBatch.size()-1; i>=0;i--){
-                buffer.offerFirst(pollsInTheBatch.get(i));
-            }
+                    buffer.offerFirst(pollsInTheBatch.get(i));
+                }
             handleConsumerThread(true);
-            throw e;
         }
         catch(Exception e){
             String rootMsg = e.getMessage();
             logger.error("Exception occured", rootMsg);
             throw e;
-        }
-    }
-
+        }  
+    }    
+        
     @Override
     public void start() {
         logger.info("BatchProcessor starting: Initializing time-based flush");
@@ -177,7 +195,7 @@ public class BatchProcessor implements SmartLifecycle{
 
                 synchronized(this){
                     isRecovering = false;
-                    if (recoveryTask != null) {
+                    if(recoveryTask != null){
                         recoveryTask.cancel(false);
                         recoveryTask = null;
                     }
