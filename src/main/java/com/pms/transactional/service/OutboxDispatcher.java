@@ -138,6 +138,7 @@ public class OutboxDispatcher implements SmartLifecycle {
                             outboxdao.markAsSent(result.getSuccessfulIds());
                             log.info("Portfolio {}: Marked {} events as SENT", portfolioId,
                                     result.getSuccessfulIds().size());
+                            
                         }
 
                         // 4b. Handle poison pill (if any)
