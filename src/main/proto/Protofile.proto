@@ -20,11 +20,10 @@ message Trade {
 
 message Transaction {
   string transactionId = 1; 
-  string tradeId = 2;
-  string portfolioId = 3;
-  string symbol = 4;
-  string side = 5;
-  string buyPrice = 6;
-  string sellPrice = 7;
-  int64 quantity = 8;
+  string portfolioId = 2;
+  string symbol = 3;
+  string side = 4;
+  string buyPrice = 5;
+  string sellPrice = 6;
+  int64 quantity = 7;
 }

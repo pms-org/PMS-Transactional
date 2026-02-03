@@ -25,23 +25,6 @@ public class KafkaProducerConfig {
     @Value("${spring.kafka.properties.schema.registry.url}")
     private String schemaRegistryUrl;
 
-    // Topics
-    @Bean
-    public NewTopic transactionsTopic() {
-        return TopicBuilder.name("transactions-topic")
-                .partitions(5)
-                .replicas(1)
-                .build();
-    }
-
-    @Bean
-    public NewTopic validatedTradesTopic() {
-        return TopicBuilder.name("validatedtrades-topic")
-                .partitions(5)
-                .replicas(1)
-                .build();
-    }
-
     // Protobuf Producer Config
     @Bean
     public Map<String, Object> producerConfigs() {
@@ -72,8 +55,9 @@ public class KafkaProducerConfig {
         configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
         configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaProtobufSerializer.class);
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put("schema-registry-url", schemaRegistryUrl);
         return configProps;
     }
 

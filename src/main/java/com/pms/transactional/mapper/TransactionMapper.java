@@ -32,7 +32,6 @@ public class TransactionMapper{
 
         Transaction transactionProto = Transaction.newBuilder()
                                         .setTransactionId(transaction.getTransactionId().toString())
-                                        .setTradeId(transaction.getTrade().getTradeId().toString())
                                         .setPortfolioId(transaction.getTrade().getPortfolioId().toString())
                                         .setSymbol(transaction.getTrade().getSymbol())
                                         .setSide(transaction.getTrade().getSide().name())

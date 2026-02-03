@@ -10,6 +10,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -36,7 +37,7 @@ public class OutboxEventProcessor {
 
     private KafkaTemplate<String, Object> kafkaTemplate;
 
-    public OutboxEventProcessor(KafkaTemplate<String, Object> kafkaTemplate) {
+    public OutboxEventProcessor(@Qualifier("kafkaOutboxTemplate")KafkaTemplate<String, Object> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
 
@@ -73,8 +74,7 @@ public class OutboxEventProcessor {
             kafkaTemplate.send(
                     PUBLISH_TOPIC,
                     event.getPortfolioId().toString(),
-                    proto)
-                    .get(kafkaSendTimeoutMs, TimeUnit.MILLISECONDS);
+                    proto).get(kafkaSendTimeoutMs, TimeUnit.MILLISECONDS);
             log.info("Transaction Proto sent to analytics, : ", proto);
             log.debug("Sent outbox event {}", event.getTransactionOutboxId());
 
