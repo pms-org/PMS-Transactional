@@ -2,38 +2,29 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_REPO = "tejosaran123/pms-transactional"
+        DOCKERHUB_REPO = "kovidms/pms-transactional"
         IMAGE_TAG = "latest"
-        EC2_HOST = "ubuntu@3.144.102.78"
     }
 
     stages {
-        
-
-       
-
-        stage('Git Checkout') {
-    steps {
-        checkout([$class: 'GitSCM',
-            branches: [[name: 'main']],
-            extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: '.']],
-            userRemoteConfigs: [[url: 'https://github.com/pms-org/pms-transactional.git']]
-        ])
-    }
-}
-
-stage('DEBUG CREDENTIALS') {
-    steps {
-        echo "Checking credentials..."
-        withCredentials([file(credentialsId: 'pms-env-file', variable: 'ENV_FILE')]) {
-            echo "ENV file credential loaded successfully!"
+        stage('Git Checkout'){
+            steps {
+                checkout([$class: 'GitSCM',
+                    branches: [[name: 'main']],
+                    extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: '.']],
+                    userRemoteConfigs: [[url: 'https://github.com/pms-org/pms-transactional.git']]
+                ])
+            }
         }
-        sshagent(['ec2-ssh-key']) {
-            echo "SSH credential loaded successfully!"
-        }
-    }
-}
 
+        stage('DEBUG CREDENTIALS') {
+            steps {
+                echo "Checking credentials..."
+                withCredentials([file(credentialsId: 'pms-env-file', variable: 'ENV_FILE')]) {
+                    echo "ENV file credential loaded successfully!"
+                }
+            }
+        }
 
         stage('Debug Workspace') {
             steps {
@@ -43,16 +34,13 @@ stage('DEBUG CREDENTIALS') {
         }
 
        stage('Build Docker Image') {
-    steps {
-        sh """
-           docker build --progress=plain --no-cache -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
+            steps {
+                sh """
+                docker build --progress=plain --no-cache -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
 
-        """
-    }
-}
-
-
-
+                """
+            }
+        }
 
         stage('Login & Push to DockerHub') {
             steps {
@@ -68,41 +56,12 @@ stage('DEBUG CREDENTIALS') {
                 }
             }
         }
-
-        stage('Deploy to EC2') {
-            steps {
-                sshagent(['ec2-ssh-key']) {
-                    withCredentials([file(credentialsId: 'pms-env-file', variable: 'ENV_FILE')]) {
-
-                        // Copy compose file
-                        sh """
-                        scp -o StrictHostKeyChecking=no \
-                            docker-compose.yml \
-                            ${EC2_HOST}:/home/ubuntu/docker-compose.yml
-                        """
-
-                        // Copy .env inside EC2 from Jenkins secret file
-                        sh """
-                        scp -o StrictHostKeyChecking=no ${ENV_FILE} ${EC2_HOST}:/home/ubuntu/.env
-                        """
-
-                        // Deploy containers
-                        sh """
-                        ssh -o StrictHostKeyChecking=no ${EC2_HOST} '
-                            docker pull ${DOCKERHUB_REPO}:${IMAGE_TAG} &&
-                            docker compose down &&
-                            docker compose up -d
-                        '
-                        """
-                    }
-                }
-            }
-        }
+        
     }
 
     post {
-        success { echo "Deployment Successful" }
-        failure { echo "Deployment Failed" }
+        success { echo "Docker Upload successful" }
+        failure { echo "Docker Upload Failed" }
     }
 
 }
