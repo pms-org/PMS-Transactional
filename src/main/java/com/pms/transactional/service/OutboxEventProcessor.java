@@ -75,7 +75,7 @@ public class OutboxEventProcessor {
                     PUBLISH_TOPIC,
                     event.getPortfolioId().toString(),
                     proto).get(kafkaSendTimeoutMs, TimeUnit.MILLISECONDS);
-            log.info("Transaction Proto sent to analytics, : ", proto);
+            log.info("Transaction Proto sent to analytics,{} : ", proto.toString());
             log.debug("Sent outbox event {}", event.getTransactionOutboxId());
 
         } catch (InvalidProtocolBufferException e) {

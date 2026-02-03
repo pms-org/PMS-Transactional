@@ -14,20 +14,20 @@
 
 
 services:
-  pms-transactional:
-    image: kovidms/pms-transactional-v2
-    hostname: pms-transactional
-    container_name: pms-transactional
-    ports:
-      - "8084:8084"
-    env_file:
-      - .env
-    extra_hosts:
-      - "host.docker.internal:host-gateway" 
-    depends_on:
-      - kafka
-      - schema-registry
-    restart: unless-stopped
+  # pms-transactional:
+  #   image: kovidms/pms-transactional-v2
+  #   hostname: pms-transactional
+  #   container_name: pms-transactional
+  #   ports:
+  #     - "8084:8084"
+  #   env_file:
+  #     - .env
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway" 
+  #   depends_on:
+  #     - kafka
+  #     - schema-registry
+  #   restart: unless-stopped
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0

@@ -134,7 +134,7 @@ public class OutboxDispatcher implements SmartLifecycle {
                     // STEP 4: Handle results within transaction
                     transactionTemplate.execute(status -> {
                         // 4a. Mark successful prefix as SENT (SINGLE DB UPDATE per portfolio)
-                        if (!result.getSuccessfulIds().isEmpty()) {
+                        if (!result.hasSystemFailure() && !result.getSuccessfulIds().isEmpty()) {
                             outboxdao.markAsSent(result.getSuccessfulIds());
                             log.info("Portfolio {}: Marked {} events as SENT", portfolioId,
                                     result.getSuccessfulIds().size());

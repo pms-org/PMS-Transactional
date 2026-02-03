@@ -50,14 +50,14 @@ public class KafkaProducerConfig {
     @Bean
     public Map<String, Object> outboxProducerConfigs() {
         Map<String, Object> configProps = new HashMap<>();
-        configProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "outbox-tx-");
-        configProps.put(ProducerConfig.ACKS_CONFIG, "all");
-        configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
-        configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        // configProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, "outbox-tx-");
+        // configProps.put(ProducerConfig.ACKS_CONFIG, "all");
+        // configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
+        // configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaProtobufSerializer.class);
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        configProps.put("schema-registry-url", schemaRegistryUrl);
+        configProps.put("schema.registry.url", schemaRegistryUrl);
         return configProps;
     }
 
