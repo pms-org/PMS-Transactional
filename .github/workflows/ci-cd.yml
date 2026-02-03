@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Checkout Code from Git repository
         uses: actions/checkout@v4
-        
+
       - name: Debug workspace
         run: |
               pwd
@@ -31,8 +31,8 @@ jobs:
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
-          username:${{ secrets.DOCKERHUB_USER }}
-          password:${{ secrets.DOCKERHUB_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
       
       - name: Push to DockerHub
         run: |
