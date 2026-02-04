@@ -36,7 +36,7 @@ public class OutboxEventProcessor {
 
     private KafkaTemplate<String, Object> kafkaTemplate;
 
-    public OutboxEventProcessor(@Qualifier("kafkaOutboxTemplate")KafkaTemplate<String, Object> kafkaTemplate) {
+    public OutboxEventProcessor(@Qualifier("kafkaOutboxTemplate") KafkaTemplate<String, Object> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
 

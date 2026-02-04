@@ -1,12 +1,15 @@
 spring:
+  config:
+    import: optional:file:.env.properties
   application:
     name: pms-transactional
-
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?reWriteBatchedInserts=true
-    username: ${DB_USERNAME} 
-    password: ${DB_PASSWORD} 
-
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 
   jpa:
     hibernate:
@@ -14,7 +17,7 @@ spring:
     show-sql: ${DB_SHOW_SQL:false}
     properties:
       hibernate:
-        jdbc.batch_size: ${TRANSACTIONAL_JDBC_BATCH_SIZE:500} 
+        jdbc.batch_size: ${TRANSACTIONAL_JDBC_BATCH_SIZE:500}
         order_inserts: true
         order_updates: true
         jdbc.batch_versioned_data: true
@@ -26,16 +29,16 @@ spring:
   kafka:
     admin:
       enabled: false
-  
+
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
 
     properties:
       schema:
         registry:
           url: ${SCHEMA_REGISTRY_URL}
-      
+
 server:
-  port: ${TRANSACTIONAL_SERVER_PORT:8084} 
+  port: ${TRANSACTIONAL_SERVER_PORT:8084}
 
 logging:
   level:
@@ -77,3 +80,17 @@ app:
       listening-topic: ${TRANSACTIONAL_TRADES_CONSUMER_LISTENING_TOPIC}
       group-id: ${TRANSACTIONAL_TRADES_CONSUMER_GROUP_ID}
 
+rttm:
+  client:
+    mode: kafka
+    kafka:
+      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+      topics:
+        trade-events: ${RTTM_TRADE_TOPIC:rttm.trade.events}
+        dlq-events: ${RTTM_DLQ_TOPIC:rttm.dlq.events}
+        queue-metrics: ${RTTM_QUEUE_METRIC_TOPIC:rttm.queue.metrics}
+        error-events: ${RTTM_ERROR_TOPIC:rttm.error.events}
+    send-timeout-ms: ${RTTM_SEND_TIMEOUT_MS:3000}
+    retry:
+      max-attempts: ${RTTM_RETRY_MAX_ATTEMPTS:3}
+      backoff-ms: ${RTTM_RETRY_BACKOFF_MS:100}
