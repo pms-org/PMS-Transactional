@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
-import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.apache.kafka.common.errors.SerializationException;
 
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -68,7 +67,6 @@ public class OutboxEventProcessor {
             throws PoisonPillException, SystemFailureException {
 
         try {
-            // Deserialize protobuf (POISON PILL if corrupt)
             Transaction proto = Transaction.parseFrom(event.getPayload());
 
             kafkaTemplate.send(
@@ -106,7 +104,6 @@ public class OutboxEventProcessor {
 
         String msg = root.getClass().getSimpleName() + ": " + root.getMessage();
 
-        // ===== POISON PILLS =====
         if (root instanceof SerializationException) {
             throw new PoisonPillException(eventId, "Kafka serialization failed: " + msg, cause);
         }
@@ -119,7 +116,6 @@ public class OutboxEventProcessor {
             throw new PoisonPillException(eventId, "Invalid event data: " + msg, cause);
         }
 
-        // ===== SYSTEM FAILURE (default) =====
         throw new SystemFailureException("Kafka system failure: " + msg, cause);
     }
 

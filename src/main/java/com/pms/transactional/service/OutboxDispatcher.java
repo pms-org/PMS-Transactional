@@ -5,11 +5,9 @@ import java.util.concurrent.Executor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.beans.factory.annotation.Value;
 
@@ -63,16 +61,14 @@ public class OutboxDispatcher implements SmartLifecycle {
     public void start() {
         if (running)
             return;
-        log.info("------------Starting Portfolio-Ordered Outbox Dispatcher...---------------");
+        log.info("Starting Portfolio-Ordered Outbox Dispatcher");
         running = true;
-
-        // Submit the long-running loop to the Spring-managed thread pool
         taskExecutor.execute(this::dispatchLoop);
     }
 
     @Override
     public void stop() {
-        log.info("-------------------Stopping Outbox Dispatcher...-----------------------");
+        log.info("Stopping Outbox Dispatcher");
         running = false;
     }
 
@@ -94,7 +90,6 @@ public class OutboxDispatcher implements SmartLifecycle {
     private void dispatchLoop() {
         while (running) {
             try {
-                // Apply backoff if previous iteration had system failure
                 if (currentBackoff > 0) {
                     log.warn("System failure backoff active: sleeping {}ms", currentBackoff);
                     sleep(currentBackoff);
@@ -102,38 +97,28 @@ public class OutboxDispatcher implements SmartLifecycle {
 
                 long startTime = System.currentTimeMillis();
 
-                // STEP 1: Fetch batch with advisory lock-based portfolio isolation
                 int limit = batchSizer.getCurrentSize();
                 List<OutboxEventEntity> batch = transactionTemplate
                         .execute(status -> outboxdao.findPendingWithPortfolioXactLock(limit));
 
                 if (batch == null || batch.isEmpty()) {
-                    // No work to do (or all portfolios locked by other pods)
                     batchSizer.reset();
-                    currentBackoff = 0; // Reset backoff on idle
+                    currentBackoff = 0;
                     sleep(50);
                     continue;
                 }
-
-                // STEP 2: Group by portfolio (maintains insertion order)
-                // Note: All events in batch are from portfolios THIS pod locked
                 var eventsByPortfolio = new java.util.LinkedHashMap<java.util.UUID, java.util.ArrayList<OutboxEventEntity>>();
                 for (OutboxEventEntity event : batch) {
                     eventsByPortfolio.computeIfAbsent(event.getPortfolioId(), k -> new java.util.ArrayList<>())
                             .add(event);
                 }
 
-                // STEP 3: Process each portfolio's batch (maintains strict ordering)
                 for (var entry : eventsByPortfolio.entrySet()) {
                     java.util.UUID portfolioId = entry.getKey();
                     List<OutboxEventEntity> portfolioBatch = entry.getValue();
 
-                    // Process this portfolio's events (prefix-safe, failure-classified)
                     ProcessingResult result = processor.process(portfolioBatch);
-
-                    // STEP 4: Handle results within transaction
                     transactionTemplate.execute(status -> {
-                        // 4a. Mark successful prefix as SENT (SINGLE DB UPDATE per portfolio)
                         if (!result.hasSystemFailure() && !result.getSuccessfulIds().isEmpty()) {
                             outboxdao.markAsSent(result.getSuccessfulIds());
                             log.info("Portfolio {}: Marked {} events as SENT", portfolioId,
@@ -141,7 +126,6 @@ public class OutboxDispatcher implements SmartLifecycle {
                             
                         }
 
-                        // 4b. Handle poison pill (if any)
                         if (result.hasPoisonPill()) {
                             PoisonPillException ppe = result.getPoisonPill();
                             OutboxEventEntity poisonEvent = findEventById(portfolioBatch, ppe.getEventId());
@@ -154,21 +138,17 @@ public class OutboxDispatcher implements SmartLifecycle {
                         return null;
                     });
 
-                    // STEP 5: Backoff strategy for system failures
                     if (result.hasSystemFailure()) {
-                        // Exponential backoff
                         currentBackoff = currentBackoff == 0 ? systemFailureBackoffMs
                                 : Math.min(currentBackoff * 2, maxBackoffMs);
                         log.error("Portfolio {}: System failure detected. Backoff={}ms. Will retry on next iteration.",
                                 portfolioId, currentBackoff);
-                        break; // Stop processing other portfolios, apply backoff
+                        break;
                     } else {
-                        // Success or poison pill (not a system issue)
-                        currentBackoff = 0; // Reset backoff
+                        currentBackoff = 0;
                     }
                 }
 
-                // Feedback for adaptive sizing (only if no system failure)
                 if (currentBackoff == 0) {
                     long duration = System.currentTimeMillis() - startTime;
                     batchSizer.adjust(duration, batch.size());
@@ -176,7 +156,6 @@ public class OutboxDispatcher implements SmartLifecycle {
 
             } catch (Exception e) {
                 log.error("Unexpected error in dispatch loop", e);
-                // Defensive: backoff and continue
                 currentBackoff = systemFailureBackoffMs;
                 sleep(currentBackoff);
             }
@@ -189,10 +168,7 @@ public class OutboxDispatcher implements SmartLifecycle {
         invalid.setAggregateId(event.getAggregateId());
         invalid.setPayload(event.getPayload());
         invalid.setErrorMessage("Poison pill: " + errorMsg);
-
         invalidtrdesdao.save(invalid);
-
-        // IMPORTANT: Do NOT delete → mark as FAILED to preserve audit trail
         outboxdao.markAsFailed(event.getTransactionOutboxId());
     }
 
