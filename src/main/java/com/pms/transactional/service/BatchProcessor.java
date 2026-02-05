@@ -64,6 +64,10 @@ public class BatchProcessor implements SmartLifecycle{
     @Autowired
     private TransactionService transactionService;
 
+    @Autowired
+    @Qualifier("rttmExecutor")
+    private ThreadPoolTaskExecutor rttmExecutor;
+
     @Value("${app.batch.size}")
     private int BATCH_SIZE;
 
@@ -88,7 +92,7 @@ public class BatchProcessor implements SmartLifecycle{
     private ScheduledFuture<?> recoveryTask; 
     private boolean isRunning = false;
 
-    public void checkAndFlush(List<Trade> trades,List<Long> offsets, int partition,String recievedTopic ,Acknowledgment ack) {
+    public void checkAndFlush(List<Trade> trades,List<Long> offsets, List<Integer> partitions,String recievedTopic ,Acknowledgment ack) {
         int incomingTradeCount = trades.size();
 
         if(buffer.size() >= 0.8*totalBufferCapacity){
@@ -100,7 +104,7 @@ public class BatchProcessor implements SmartLifecycle{
             resumeConsumer();
         }
 
-        if(buffer.offer(new PollBatch(trades,offsets,recievedTopic,partition,ack))){
+        if(buffer.offer(new PollBatch(trades,offsets,recievedTopic,partitions,ack))){
             totalTradeCount.addAndGet(incomingTradeCount);
         }
 
@@ -133,33 +137,37 @@ public class BatchProcessor implements SmartLifecycle{
             transactionService.processUnifiedBatch(grouped.getOrDefault("BUY", List.of()), grouped.getOrDefault("SELL", List.of()),pollsInTheBatch);
             pollsInTheBatch.forEach(poll->poll.getAck().acknowledge());
             totalTradeCount.addAndGet(-batchTrades.size());
-            pollsInTheBatch.forEach(poll->{
-                for(int i = 0; i < poll.getTradeProtos().size(); i++){
-                    Trade trade = poll.getTradeProtos().get(i);
-                    Long offset = (poll.getOffsets() != null && poll.getOffsets().size() > i) ? poll.getOffsets().get(i) : 0; 
-                    System.out.println("Processing tradeId: " + trade.getTradeId() +" at offset: " + offset + " partition: " + poll.getPartition());
+            final List<PollBatch> pollsToReport = new ArrayList<>(pollsInTheBatch);
+            rttmExecutor.execute(()->{     
+                pollsToReport.forEach(poll->{
+                    for(int i = 0; i < poll.getTradeProtos().size(); i++){
+                        Trade trade = poll.getTradeProtos().get(i);
+                        Long offset = (poll.getOffsets() != null && poll.getOffsets().size() > i) ? poll.getOffsets().get(i) : 0;
+                        Integer partition = (poll.getPartitions() != null && poll.getPartitions().size() > i) ? poll.getPartitions().get(i) : 0; 
+                        System.out.println("Processing tradeId: " + trade.getTradeId() +" at offset: " + offset + " partition: " + partition);
 
-                    TradeEventPayload tradePayload = TradeEventPayload.builder()
-                            .tradeId(trade.getTradeId())
-                            .serviceName("pms-transactional")
-                            .eventType(EventType.TRADE_COMMITTED)
-                            .eventStage(EventStage.COMMITTED)
-                            .eventStatus("COMMITTED")
-                            .sourceQueue(poll.getListening_topic())
-                            .targetQueue(publishingTopic)
-                            .topicName(poll.getListening_topic())
-                            .consumerGroup(consumerGroupId)
-                            .partitionId(poll.getPartition())
-                            .offsetValue(offset)
-                            .build();
-                    try{
-                        rttmClient.sendTradeEvent(tradePayload);
-                        logger.info("RTTM trade event publish succeeded for tradeId={} after persisting in DB", trade.getTradeId());
-                    } catch(Exception e){
-                        logger.error("RTTM trade event publish failed for tradeId={} after persisting in DB",trade.getTradeId(), e);
+                        TradeEventPayload tradePayload = TradeEventPayload.builder()
+                                .tradeId(trade.getTradeId())
+                                .serviceName("pms-transactional")
+                                .eventType(EventType.TRADE_COMMITTED)
+                                .eventStage(EventStage.COMMITTED)
+                                .eventStatus("COMMITTED")
+                                .sourceQueue(poll.getListening_topic())
+                                .targetQueue(publishingTopic)
+                                .topicName(poll.getListening_topic())
+                                .consumerGroup(consumerGroupId)
+                                .partitionId(partition)
+                                .offsetValue(offset)
+                                .build();
+                        try{
+                            rttmClient.sendTradeEvent(tradePayload);
+                            logger.info("RTTM trade event publish succeeded for tradeId={} after persisting in DB", trade.getTradeId());
+                        } catch(Exception e){
+                            logger.error("RTTM trade event publish failed for tradeId={} after persisting in DB",trade.getTradeId(), e);
+                        }
                     }
-                }
-            });  
+                });
+            }); 
         } 
         catch(DataAccessResourceFailureException e){
             logger.error("DB Connection failure. Pausing consumer.");

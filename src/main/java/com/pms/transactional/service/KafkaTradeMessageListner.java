@@ -40,7 +40,7 @@ public class KafkaTradeMessageListner {
     public void listen(
             List<Trade> trades,
             @Header(value = KafkaHeaders.OFFSET, required = false) List<Long> offsets,
-            @Header(value = KafkaHeaders.PARTITION, required = false) Integer partition,
+            @Header(value = KafkaHeaders.PARTITION, required = false) List<Integer> partitions,
             @Header(value = KafkaHeaders.RECEIVED_TOPIC, required = false) String recievedTopic,
             Acknowledgment ack) {
         for (int i = 0; i < trades.size(); i++) {
@@ -49,6 +49,8 @@ public class KafkaTradeMessageListner {
             Long offset = (offsets != null && offsets.size() > i)
                     ? offsets.get(i)
                     : 0; 
+
+            Integer partition = (partitions != null && partitions.size() > i) ?partitions.get(i):0;
 
             System.out.println("Processing tradeId: " + trade.getTradeId() +
                     " at offset: " + offset + " partition: " + partition);
@@ -75,6 +77,6 @@ public class KafkaTradeMessageListner {
                 logger.error("RTTM publish failed for tradeId={}",trade.getTradeId(),e);
             }
         }
-        batchProcessor.checkAndFlush(trades,offsets,partition,recievedTopic, ack);
+        batchProcessor.checkAndFlush(trades,offsets,partitions,recievedTopic, ack);
     }
 }
