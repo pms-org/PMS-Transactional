@@ -48,7 +48,7 @@ public class KafkaTradeMessageListner {
 
             Long offset = (offsets != null && offsets.size() > i)
                     ? offsets.get(i)
-                    : 0; 
+                    : 0;
 
             Integer partition = (partitions != null && partitions.size() > i) ?partitions.get(i):0;
 
@@ -72,9 +72,9 @@ public class KafkaTradeMessageListner {
 
             try {
                 rttmClient.sendTradeEvent(tradePayload);
-                logger.info("RTTM trade event publish succeeded for tradeId={} after consuming",trade.getTradeId());
+                logger.info("RTTM trade event publish succeeded for tradeId={} after consuming", trade.getTradeId());
             } catch (Exception e) {
-                logger.error("RTTM publish failed for tradeId={}",trade.getTradeId(),e);
+                logger.error("RTTM publish failed for tradeId={}", trade.getTradeId(), e);
             }
         }
         batchProcessor.checkAndFlush(trades,offsets,partitions,recievedTopic, ack);

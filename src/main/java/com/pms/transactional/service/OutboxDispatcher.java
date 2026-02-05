@@ -98,60 +98,90 @@ public class OutboxDispatcher implements SmartLifecycle {
                 long startTime = System.currentTimeMillis();
 
                 int limit = batchSizer.getCurrentSize();
-                List<OutboxEventEntity> batch = transactionTemplate
-                        .execute(status -> outboxdao.findPendingWithPortfolioXactLock(limit));
+                Integer processedCount = transactionTemplate.execute(status -> {
 
-                if (batch == null || batch.isEmpty()) {
+                    List<OutboxEventEntity> batch = outboxdao.findPendingWithPortfolioXactLock(limit);
+
+                    if (batch == null || batch.isEmpty()) {
+                        return 0;
+                    }
+
+                    var eventsByPortfolio = new java.util.LinkedHashMap<java.util.UUID, java.util.ArrayList<OutboxEventEntity>>();
+
+                    for (OutboxEventEntity event : batch) {
+                        eventsByPortfolio
+                                .computeIfAbsent(event.getPortfolioId(),
+                                        k -> new java.util.ArrayList<>())
+                                .add(event);
+                    }
+
+                    for (var entry : eventsByPortfolio.entrySet()) {
+
+                        java.util.UUID portfolioId = entry.getKey();
+                        List<OutboxEventEntity> portfolioBatch = entry.getValue();
+
+                        // 🔒 Kafka send + DB update in SAME TX
+                        ProcessingResult result = processor.process(portfolioBatch);
+
+                        if (!result.getSuccessfulIds().isEmpty() && !result.hasSystemFailure()) {
+                            outboxdao.markAsSent(
+                                    result.getSuccessfulIds());
+
+                            log.info(
+                                    "Portfolio {}: Marked {} events as SENT",
+                                    portfolioId,
+                                    result.getSuccessfulIds().size());
+                        }
+
+                        if (result.hasPoisonPill()) {
+                            PoisonPillException ppe = result.getPoisonPill();
+
+                            OutboxEventEntity poisonEvent = findEventById(
+                                    portfolioBatch,
+                                    ppe.getEventId());
+
+                            if (poisonEvent != null) {
+                                moveToDlq(
+                                        poisonEvent,
+                                        ppe.getMessage());
+
+                                log.warn(
+                                        "Portfolio {}: Routed poison pill {} to DLQ",
+                                        portfolioId,
+                                        ppe.getEventId());
+                            }
+                        }
+
+                        if (result.hasSystemFailure()) {
+
+                            currentBackoff = currentBackoff == 0
+                                    ? systemFailureBackoffMs
+                                    : Math.min(
+                                            currentBackoff * 2,
+                                            maxBackoffMs);
+
+                            log.error(
+                                    "Portfolio {}: System failure detected. Rolling back TX. Backoff={}ms",
+                                    portfolioId,
+                                    currentBackoff);
+
+                            break;
+                        } else {
+                            currentBackoff = 0;
+                        }
+                    }
+                    return batch.size();
+                });
+                if (processedCount == null || processedCount == 0) {
                     batchSizer.reset();
                     currentBackoff = 0;
                     sleep(50);
                     continue;
                 }
-                var eventsByPortfolio = new java.util.LinkedHashMap<java.util.UUID, java.util.ArrayList<OutboxEventEntity>>();
-                for (OutboxEventEntity event : batch) {
-                    eventsByPortfolio.computeIfAbsent(event.getPortfolioId(), k -> new java.util.ArrayList<>())
-                            .add(event);
-                }
-
-                for (var entry : eventsByPortfolio.entrySet()) {
-                    java.util.UUID portfolioId = entry.getKey();
-                    List<OutboxEventEntity> portfolioBatch = entry.getValue();
-
-                    ProcessingResult result = processor.process(portfolioBatch);
-                    transactionTemplate.execute(status -> {
-                        if (!result.hasSystemFailure() && !result.getSuccessfulIds().isEmpty()) {
-                            outboxdao.markAsSent(result.getSuccessfulIds());
-                            log.info("Portfolio {}: Marked {} events as SENT", portfolioId,
-                                    result.getSuccessfulIds().size());
-                            
-                        }
-
-                        if (result.hasPoisonPill()) {
-                            PoisonPillException ppe = result.getPoisonPill();
-                            OutboxEventEntity poisonEvent = findEventById(portfolioBatch, ppe.getEventId());
-                            if (poisonEvent != null) {
-                                moveToDlq(poisonEvent, ppe.getMessage());
-                                log.warn("Portfolio {}: Routed poison pill {} to DLQ", portfolioId, ppe.getEventId());
-                            }
-                        }
-
-                        return null;
-                    });
-
-                    if (result.hasSystemFailure()) {
-                        currentBackoff = currentBackoff == 0 ? systemFailureBackoffMs
-                                : Math.min(currentBackoff * 2, maxBackoffMs);
-                        log.error("Portfolio {}: System failure detected. Backoff={}ms. Will retry on next iteration.",
-                                portfolioId, currentBackoff);
-                        break;
-                    } else {
-                        currentBackoff = 0;
-                    }
-                }
 
                 if (currentBackoff == 0) {
                     long duration = System.currentTimeMillis() - startTime;
-                    batchSizer.adjust(duration, batch.size());
+                    batchSizer.adjust(duration, processedCount);
                 }
 
             } catch (Exception e) {
@@ -159,6 +189,7 @@ public class OutboxDispatcher implements SmartLifecycle {
                 currentBackoff = systemFailureBackoffMs;
                 sleep(currentBackoff);
             }
+
         }
     }
 
