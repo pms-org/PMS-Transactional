@@ -6,9 +6,9 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 @Configuration
 public class ThreadSchedulerConfig {
-    
-    @Bean(name="batchFlushScheduler")
-    public ThreadPoolTaskScheduler batchFlushSchuduler(){
+
+    @Bean(name = "batchFlushScheduler")
+    public ThreadPoolTaskScheduler batchFlushSchuduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setThreadNamePrefix("time-based-batch-flush-");
         scheduler.setPoolSize(1);
@@ -18,10 +18,21 @@ public class ThreadSchedulerConfig {
         return scheduler;
     }
 
-    @Bean(name="dbRecoveryScheduler")
-    public ThreadPoolTaskScheduler dbRecoverySchuduler(){
+    @Bean(name = "dbRecoveryScheduler")
+    public ThreadPoolTaskScheduler dbRecoverySchuduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setThreadNamePrefix("db-recovery-daemon-");
+        scheduler.setPoolSize(1);
+        scheduler.setWaitForTasksToCompleteOnShutdown(true);
+        scheduler.setAwaitTerminationSeconds(30);
+        scheduler.initialize();
+        return scheduler;
+    }
+
+    @Bean(name = "queueMetricsScheduler")
+    public ThreadPoolTaskScheduler queueMetricsScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setThreadNamePrefix("queue-metrics-publisher-");
         scheduler.setPoolSize(1);
         scheduler.setWaitForTasksToCompleteOnShutdown(true);
         scheduler.setAwaitTerminationSeconds(30);
