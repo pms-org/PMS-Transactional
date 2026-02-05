@@ -27,31 +27,29 @@ public class KafkaTradeMessageListner {
     @Autowired
     private BatchProcessor batchProcessor;
 
-<<<<<<< Updated upstream
     @Autowired
     private RttmClient rttmClient;
 
     @Value("${app.trades.consumer.group-id}")
     private String consumerGroupId;
 
+    @Value("${app.transactions.publishing-topic}")
+    private String publishingTopic;
+
     @KafkaListener(id = "${app.trades.consumer.consumer-id}", topics = "${app.trades.consumer.listening-topic}", groupId = "${app.trades.consumer.group-id}", containerFactory = "tradekafkaListenerContainerFactory")
     public void listen(
             List<Trade> trades,
             @Header(value = KafkaHeaders.OFFSET, required = false) List<Long> offsets,
             @Header(value = KafkaHeaders.PARTITION, required = false) Integer partition,
+            @Header(value = KafkaHeaders.RECEIVED_TOPIC, required = false) String recievedTopic,
             Acknowledgment ack) {
         for (int i = 0; i < trades.size(); i++) {
-
             Trade trade = trades.get(i);
 
             Long offset = (offsets != null && offsets.size() > i)
                     ? offsets.get(i)
-                    : 0; // fallback if you have it
+                    : 0; 
 
-            // fallback if you have it
-            // System.out.println("Received offset: " + offsets.get(i) + " partition: " +
-            // partitions.get(i) + " tradeId: "
-            // + trades.get(i).getTradeId());
             System.out.println("Processing tradeId: " + trade.getTradeId() +
                     " at offset: " + offset + " partition: " + partition);
 
@@ -61,9 +59,9 @@ public class KafkaTradeMessageListner {
                     .eventType(EventType.TRADE_ENRICHED)
                     .eventStage(EventStage.ENRICHED)
                     .eventStatus("ENRICHED")
-                    .sourceQueue("pms-transactional")
-                    .targetQueue("pms-analytics")
-                    .topicName("pms-transactional")
+                    .sourceQueue(recievedTopic)
+                    .targetQueue(publishingTopic)
+                    .topicName(recievedTopic)
                     .consumerGroup(consumerGroupId)
                     .partitionId(partition)
                     .offsetValue(offset)
@@ -72,27 +70,11 @@ public class KafkaTradeMessageListner {
 
             try {
                 rttmClient.sendTradeEvent(tradePayload);
-                logger.info(
-                        "RTTM publish succeeded for tradeId={}",
-                        trade.getTradeId());
-                System.out.println("RTTM publish succeeded for tradeId=" + trade.getTradeId());
+                logger.info("RTTM trade event publish succeeded for tradeId={} after consuming",trade.getTradeId());
             } catch (Exception e) {
-                logger.error(
-                        "RTTM publish failed for tradeId={}",
-                        trade.getTradeId(),
-                        e);
+                logger.error("RTTM publish failed for tradeId={}",trade.getTradeId(),e);
             }
         }
-        batchProcessor.checkAndFlush(trades, ack);
-=======
-    @KafkaListener(id="${app.trades.consumer.consumer-id}",topics = "${app.trades.consumer.listening-topic}", groupId = "${app.trades.consumer.group-id}", containerFactory = "tradekafkaListenerContainerFactory")
-    public void listen(List<Trade> trades,
-        @Header(KafkaHeaders.OFFSET) List<Long> offsets,
-        @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
-        Acknowledgment ack) {
-        logger.info("Trades recieved from partition {}", partition);
-        logger.info("Offsets size {}", offsets.size()); 
-        batchProcessor.checkAndFlush(trades,offsets,partition,ack);
->>>>>>> Stashed changes
+        batchProcessor.checkAndFlush(trades,offsets,partition,recievedTopic, ack);
     }
 }

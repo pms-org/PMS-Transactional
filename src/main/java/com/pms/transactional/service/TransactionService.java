@@ -31,6 +31,7 @@ import com.pms.transactional.entities.TradesEntity;
 import com.pms.transactional.entities.TransactionsEntity;
 import com.pms.transactional.enums.TradeSide;
 import com.pms.transactional.mapper.TransactionMapper;
+import com.pms.transactional.wrapper.PollBatch;
 
 @Service
 public class TransactionService {
@@ -47,7 +48,7 @@ public class TransactionService {
     Logger logger = LoggerFactory.getLogger(TransactionService.class);
 
     @Transactional
-    public void processUnifiedBatch(List<Trade> buyBatch, List<Trade> sellBatch) {
+    public void processUnifiedBatch(List<Trade> buyBatch, List<Trade> sellBatch,List<PollBatch> pollsInTheBatch){
         List<TradesEntity> allTrades = new ArrayList<>();
         List<TransactionsEntity> allTransactions = new ArrayList<>();
         List<OutboxEventEntity> allOutboxEvents = new ArrayList<>();

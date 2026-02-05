@@ -25,7 +25,11 @@ import java.util.stream.Collectors;
     import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
     import org.springframework.stereotype.Service;
 
-    import com.pms.transactional.Trade;
+import com.pms.rttm.client.clients.RttmClient;
+import com.pms.rttm.client.dto.TradeEventPayload;
+import com.pms.rttm.client.enums.EventStage;
+import com.pms.rttm.client.enums.EventType;
+import com.pms.transactional.Trade;
 import com.pms.transactional.wrapper.PollBatch;
 
 
@@ -41,6 +45,9 @@ public class BatchProcessor implements SmartLifecycle{
 
     @Autowired
     private LinkedBlockingDeque<PollBatch> buffer;
+
+    @Autowired
+    private RttmClient rttmClient;
 
     @Autowired
     @Qualifier("batchExecutor")
@@ -60,6 +67,12 @@ public class BatchProcessor implements SmartLifecycle{
     @Value("${app.batch.size}")
     private int BATCH_SIZE;
 
+    @Value("${app.transactions.publishing-topic}")
+    private String publishingTopic;
+
+    @Value("${app.trades.consumer.group-id}")
+    private String consumerGroupId;
+
     @Value("${app.buffer.size}")
     private int totalBufferCapacity;
 
@@ -75,10 +88,10 @@ public class BatchProcessor implements SmartLifecycle{
     private ScheduledFuture<?> recoveryTask; 
     private boolean isRunning = false;
 
-    public void checkAndFlush(List<Trade> trades,List<Long> offsets, int partition, Acknowledgment ack) {
+    public void checkAndFlush(List<Trade> trades,List<Long> offsets, int partition,String recievedTopic ,Acknowledgment ack) {
         int incomingTradeCount = trades.size();
 
-        if (buffer.size() >= 0.8*totalBufferCapacity) {
+        if(buffer.size() >= 0.8*totalBufferCapacity){
             logger.warn("Buffer reached 80 percent. Pausing and clearing 50 percent");
             handleConsumerThread(false);
             while(buffer.size() > (totalBufferCapacity / 2)){
@@ -87,7 +100,7 @@ public class BatchProcessor implements SmartLifecycle{
             resumeConsumer();
         }
 
-        if(buffer.offer(new PollBatch(trades,offsets,partition,ack))){
+        if(buffer.offer(new PollBatch(trades,offsets,recievedTopic,partition,ack))){
             totalTradeCount.addAndGet(incomingTradeCount);
         }
 
@@ -117,9 +130,36 @@ public class BatchProcessor implements SmartLifecycle{
         if(batchTrades.isEmpty()) return;
         try{
             Map<String, List<Trade>> grouped = batchTrades.stream().collect(Collectors.groupingBy(Trade::getSide));
-            transactionService.processUnifiedBatch(grouped.getOrDefault("BUY", List.of()), grouped.getOrDefault("SELL", List.of()));
+            transactionService.processUnifiedBatch(grouped.getOrDefault("BUY", List.of()), grouped.getOrDefault("SELL", List.of()),pollsInTheBatch);
             pollsInTheBatch.forEach(poll->poll.getAck().acknowledge());
             totalTradeCount.addAndGet(-batchTrades.size());
+            pollsInTheBatch.forEach(poll->{
+                for(int i = 0; i < poll.getTradeProtos().size(); i++){
+                    Trade trade = poll.getTradeProtos().get(i);
+                    Long offset = (poll.getOffsets() != null && poll.getOffsets().size() > i) ? poll.getOffsets().get(i) : 0; 
+                    System.out.println("Processing tradeId: " + trade.getTradeId() +" at offset: " + offset + " partition: " + poll.getPartition());
+
+                    TradeEventPayload tradePayload = TradeEventPayload.builder()
+                            .tradeId(trade.getTradeId())
+                            .serviceName("pms-transactional")
+                            .eventType(EventType.TRADE_COMMITTED)
+                            .eventStage(EventStage.COMMITTED)
+                            .eventStatus("COMMITTED")
+                            .sourceQueue(poll.getListening_topic())
+                            .targetQueue(publishingTopic)
+                            .topicName(poll.getListening_topic())
+                            .consumerGroup(consumerGroupId)
+                            .partitionId(poll.getPartition())
+                            .offsetValue(offset)
+                            .build();
+                    try{
+                        rttmClient.sendTradeEvent(tradePayload);
+                        logger.info("RTTM trade event publish succeeded for tradeId={} after persisting in DB", trade.getTradeId());
+                    } catch(Exception e){
+                        logger.error("RTTM trade event publish failed for tradeId={} after persisting in DB",trade.getTradeId(), e);
+                    }
+                }
+            });  
         } 
         catch(DataAccessResourceFailureException e){
             logger.error("DB Connection failure. Pausing consumer.");
