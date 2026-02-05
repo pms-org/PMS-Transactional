@@ -15,5 +15,7 @@ import lombok.NoArgsConstructor;
 @Data
 public class PollBatch {
     List<Trade> tradeProtos;
+    List<Long> offsets;
+    int partition;
     Acknowledgment ack;
 }

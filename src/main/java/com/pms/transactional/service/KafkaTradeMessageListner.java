@@ -27,6 +27,7 @@ public class KafkaTradeMessageListner {
     @Autowired
     private BatchProcessor batchProcessor;
 
+<<<<<<< Updated upstream
     @Autowired
     private RttmClient rttmClient;
 
@@ -83,5 +84,15 @@ public class KafkaTradeMessageListner {
             }
         }
         batchProcessor.checkAndFlush(trades, ack);
+=======
+    @KafkaListener(id="${app.trades.consumer.consumer-id}",topics = "${app.trades.consumer.listening-topic}", groupId = "${app.trades.consumer.group-id}", containerFactory = "tradekafkaListenerContainerFactory")
+    public void listen(List<Trade> trades,
+        @Header(KafkaHeaders.OFFSET) List<Long> offsets,
+        @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
+        Acknowledgment ack) {
+        logger.info("Trades recieved from partition {}", partition);
+        logger.info("Offsets size {}", offsets.size()); 
+        batchProcessor.checkAndFlush(trades,offsets,partition,ack);
+>>>>>>> Stashed changes
     }
 }

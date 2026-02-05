@@ -34,7 +34,7 @@ public interface OutboxEventsDao extends JpaRepository<OutboxEventEntity, UUID> 
                         SELECT *
                         FROM outbox_events e
                         WHERE e.status = 'PENDING'
-                          AND pg_try_advisory_xact_lock(
+                          AND pg_try_advisory_lock(
                                 hashtext(e.portfolio_id::text)
                               )
                         ORDER BY  e.created_at

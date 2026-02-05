@@ -75,7 +75,7 @@ public class BatchProcessor implements SmartLifecycle{
     private ScheduledFuture<?> recoveryTask; 
     private boolean isRunning = false;
 
-    public void checkAndFlush(List<Trade> trades, Acknowledgment ack) {
+    public void checkAndFlush(List<Trade> trades,List<Long> offsets, int partition, Acknowledgment ack) {
         int incomingTradeCount = trades.size();
 
         if (buffer.size() >= 0.8*totalBufferCapacity) {
@@ -87,7 +87,7 @@ public class BatchProcessor implements SmartLifecycle{
             resumeConsumer();
         }
 
-        if(buffer.offer(new PollBatch(trades, ack))){
+        if(buffer.offer(new PollBatch(trades,offsets,partition,ack))){
             totalTradeCount.addAndGet(incomingTradeCount);
         }
 
