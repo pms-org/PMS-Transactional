@@ -91,7 +91,7 @@ public class BatchProcessor implements SmartLifecycle {
     private ScheduledFuture<?> recoveryTask;
     private boolean isRunning = false;
 
-    public void checkAndFlush(List<Trade> trades,List<Long> offsets, List<Integer> partitions,String recievedTopic ,Acknowledgment ack) {
+    public void checkAndFlush(List<Trade> trades,List<Long> offsets, List<Integer> partitions,List<String> recievedTopics ,Acknowledgment ack) {
         int incomingTradeCount = trades.size();
 
         if (buffer.size() >= 0.8 * totalBufferCapacity) {
@@ -103,7 +103,7 @@ public class BatchProcessor implements SmartLifecycle {
             resumeConsumer();
         }
 
-        if(buffer.offer(new PollBatch(trades,offsets,recievedTopic,partitions,ack))){
+        if(buffer.offer(new PollBatch(trades,offsets,recievedTopics,partitions,ack))){
             totalTradeCount.addAndGet(incomingTradeCount);
         }
 
@@ -146,7 +146,8 @@ public class BatchProcessor implements SmartLifecycle {
                     for(int i = 0; i < poll.getTradeProtos().size(); i++){
                         Trade trade = poll.getTradeProtos().get(i);
                         Long offset = (poll.getOffsets() != null && poll.getOffsets().size() > i) ? poll.getOffsets().get(i) : 0;
-                        Integer partition = (poll.getPartitions() != null && poll.getPartitions().size() > i) ? poll.getPartitions().get(i) : 0; 
+                        Integer partition = (poll.getPartitions() != null && poll.getPartitions().size() > i) ? poll.getPartitions().get(i) : 0;
+                        String recievedTopic =  (poll.getRecievedTopics() != null && poll.getRecievedTopics().size() > i) ? poll.getRecievedTopics().get(i) : "";
                         System.out.println("Processing tradeId: " + trade.getTradeId() +" at offset: " + offset + " partition: " + partition);
 
                         TradeEventPayload tradePayload = TradeEventPayload.builder()
@@ -155,9 +156,9 @@ public class BatchProcessor implements SmartLifecycle {
                                 .eventType(EventType.TRADE_COMMITTED)
                                 .eventStage(EventStage.COMMITTED)
                                 .eventStatus("COMMITTED")
-                                .sourceQueue(poll.getListening_topic())
+                                .sourceQueue(recievedTopic)
                                 .targetQueue(publishingTopic)
-                                .topicName(poll.getListening_topic())
+                                .topicName(recievedTopic)
                                 .consumerGroup(consumerGroupId)
                                 .partitionId(partition)
                                 .offsetValue(offset)
