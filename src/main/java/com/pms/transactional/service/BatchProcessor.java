@@ -163,6 +163,7 @@ public class BatchProcessor implements SmartLifecycle {
                                 .partitionId(partition)
                                 .offsetValue(offset)
                                 .build();
+
                         try{
                             rttmClient.sendTradeEvent(tradePayload);
                             logger.info("RTTM trade event publish succeeded for tradeId={} after persisting in DB", trade.getTradeId());

@@ -95,7 +95,6 @@ public class TransactionService {
         if (!allOutboxEvents.isEmpty())
             batchInsertDao.batchInsertOutboxEvents(allOutboxEvents);
 
-        logger.info("invalid trades started ...");
         if (!allInvalidTrades.isEmpty()) {
             batchInsertDao.batchInsertInvalidTrades(allInvalidTrades);
         }
