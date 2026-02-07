@@ -19,7 +19,6 @@ import com.pms.transactional.Transaction;
 
 import io.confluent.kafka.serializers.protobuf.KafkaProtobufDeserializer;
 
-
 @Configuration
 public class KafkaConsumerConfig {
 
@@ -29,6 +28,9 @@ public class KafkaConsumerConfig {
     @Value("${spring.kafka.properties.schema.registry.url}")
     private String schemaRegistryUrl;
 
+    @Value("${app.transactions.consumer.group-id}")
+    private String transactionsConsumerGroup;
+
     @Bean
     public Map<String, Object> transactionConsumerConfigs() {
         Map<String, Object> props = new HashMap<>();
@@ -36,7 +38,7 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "transactions");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaProtobufDeserializer.class);
-        props.put("schema.registry.url",schemaRegistryUrl);
+        props.put("schema.registry.url", schemaRegistryUrl);
         props.put("specific.protobuf.value.type", Transaction.class.getName());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
@@ -60,12 +62,12 @@ public class KafkaConsumerConfig {
     @Bean
     public Map<String, Object> tradeConsumerConfigs() {
         Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,bootstrapServers);
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "trades");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaProtobufDeserializer.class);
-        props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG,1000);
+        props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1000);
         props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 600000);
         props.put("schema.registry.url", schemaRegistryUrl);
         props.put("specific.protobuf.value.type", Trade.class.getName());
@@ -86,7 +88,28 @@ public class KafkaConsumerConfig {
         factory.getContainerProperties().setPollTimeout(3000);
         factory.setBatchListener(true);
         factory.getContainerProperties()
-           .setAckMode(ContainerProperties.AckMode.MANUAL);
+                .setAckMode(ContainerProperties.AckMode.MANUAL);
         return factory;
     }
+
+    @Bean
+    public ConsumerFactory<String, String> metricsConsumerFactory() {
+
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+
+        // IMPORTANT: use the SAME consumer group as next service
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, transactionsConsumerGroup);
+
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                StringDeserializer.class);
+
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                StringDeserializer.class);
+
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
 }
