@@ -64,7 +64,7 @@ public class BatchProcessor implements SmartLifecycle {
     private TransactionService transactionService;
 
     @Autowired
-    @Qualifier("rttmExecutor")
+    @Qualifier("rttmPostSaveExecutor")
     private ThreadPoolTaskExecutor rttmExecutor;
 
     @Value("${app.batch.size}")
