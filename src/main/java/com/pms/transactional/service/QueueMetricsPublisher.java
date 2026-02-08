@@ -1,32 +1,25 @@
 package com.pms.transactional.service;
 
-import java.util.Collection;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Executor;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.SmartLifecycle;
-import org.springframework.stereotype.Service;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
-import org.springframework.kafka.core.ConsumerFactory;
-import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.SmartLifecycle;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.stereotype.Service;
 
 import com.pms.rttm.client.clients.RttmClient;
 import com.pms.rttm.client.dto.QueueMetricPayload;
-import org.apache.kafka.common.TopicPartition;
-import java.time.Duration;
-import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class QueueMetricsPublisher implements SmartLifecycle {
@@ -37,6 +30,7 @@ public class QueueMetricsPublisher implements SmartLifecycle {
     private final ConsumerFactory<String, String> consumerFactory;
     private final RttmClient rttmClient;
 
+    private KafkaConsumer<String, String> metricsConsumer;
     private volatile boolean running = false;
 
     @Value("${app.transactions.publishing-topic}")
@@ -58,130 +52,28 @@ public class QueueMetricsPublisher implements SmartLifecycle {
         this.rttmClient = rttmClient;
     }
 
+    // ===================== LIFECYCLE =====================
+
     @Override
     public void start() {
         running = true;
+
+        metricsConsumer = (KafkaConsumer<String, String>) consumerFactory.createConsumer(consumerGroup, "", "-metrics");
+
         executor.execute(this::loop);
+
         log.info("QueueMetricsPublisher started");
-    }
-
-    private void loop() {
-        while (running) {
-            try {
-                sendQueueMetrics();
-                Thread.sleep(30_000); // 30s
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                running = false;
-            } catch (Exception ex) {
-                log.error("Error while sending queue metrics. Backing off...", ex);
-
-                try {
-                    Thread.sleep(30_000); // 30s backoff on error
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    running = false;
-                }
-            }
-        }
     }
 
     @Override
     public void stop() {
         running = false;
-        log.info("QueueMetricsPublisher stopping");
-    }
 
-    /**
-     * Same behavior as validation QueueMetricsService
-     * Sends metrics ONLY for publishing topic
-     */
-    private void sendQueueMetrics() {
-
-        try (KafkaConsumer<String, String> consumer = (KafkaConsumer<String, String>) consumerFactory.createConsumer(
-                consumerGroup, "", "-metrics")) {
-
-            sendMetricsForAllPartitions(consumer, publishingTopic);
-
-            log.debug("Queue metrics sent successfully for topic {}", publishingTopic);
-
-        } catch (Exception ex) {
-            log.warn("Failed to send queue metrics: {}", ex.getMessage(), ex);
-        }
-    }
-
-    private void sendMetricsForAllPartitions(
-            KafkaConsumer<String, String> consumer,
-            String topicName) {
-
-        List<PartitionInfo> partitionInfos = consumer.partitionsFor(topicName);
-
-        if (partitionInfos == null || partitionInfos.isEmpty()) {
-            log.warn("[METRICS] No partitions found for topic {}", topicName);
-            return;
+        if (metricsConsumer != null) {
+            metricsConsumer.close();
         }
 
-        List<TopicPartition> topicPartitions = partitionInfos.stream()
-                .map(p -> new TopicPartition(topicName, p.partition()))
-                .toList();
-
-        // 🔥 THIS IS THE KEY FIX
-        consumer.assign(topicPartitions);
-
-        log.info("[METRICS] Assigned partitions: {}", topicPartitions);
-
-        for (TopicPartition tp : topicPartitions) {
-            sendMetricForTopic(consumer, topicName, tp.partition());
-        }
-    }
-
-    private void sendMetricForTopic(
-            KafkaConsumer<String, String> consumer,
-            String topicName,
-            int partitionId) {
-
-        log.info(
-                "[METRICS-CHECK] topic={} partition={} group={}",
-                topicName,
-                partitionId,
-                consumerGroup);
-
-        try {
-            TopicPartition tp = new TopicPartition(topicName, partitionId);
-
-            Map<TopicPartition, Long> endOffsets = consumer.endOffsets(Collections.singleton(tp));
-            long producedOffset = endOffsets.getOrDefault(tp, 0L);
-
-            OffsetAndMetadata committed = consumer.committed(Collections.singleton(tp), Duration.ofSeconds(5))
-                    .get(tp);
-            long consumedOffset = committed != null ? committed.offset() : 0L;
-
-            QueueMetricPayload metric = QueueMetricPayload.builder()
-                    .serviceName(serviceName)
-                    .topicName(topicName)
-                    .partitionId(partitionId)
-                    .producedOffset(producedOffset)
-                    .consumedOffset(consumedOffset)
-                    .consumerGroup(consumerGroup)
-                    .build();
-
-            rttmClient.sendQueueMetric(metric);
-
-            log.info(
-                    "Sent queue metric | topic={} partition={} produced={} consumed={} lag={}",
-                    topicName,
-                    partitionId,
-                    producedOffset,
-                    consumedOffset,
-                    producedOffset - consumedOffset);
-
-        } catch (Exception ex) {
-            log.warn(
-                    "Failed to send queue metric for topic {} partition {}",
-                    topicName,
-                    partitionId,
-                    ex);
-        }
+        log.info("QueueMetricsPublisher stopped");
     }
 
     @Override
@@ -191,7 +83,105 @@ public class QueueMetricsPublisher implements SmartLifecycle {
 
     @Override
     public int getPhase() {
-        // start AFTER Kafka listeners
+        // Start AFTER Kafka listeners
         return Integer.MAX_VALUE - 200;
+    }
+
+    // ===================== LOOP =====================
+
+    private void loop() {
+        while (running) {
+            try {
+                sendQueueMetrics();
+                Thread.sleep(30_000); // every 30s
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                running = false;
+            } catch (Exception ex) {
+                log.error("Queue metrics failure, retrying in 30s", ex);
+            }
+        }
+    }
+
+    // ===================== METRICS =====================
+
+    private void sendQueueMetrics() {
+        try {
+            sendMetricsForAllPartitions(metricsConsumer, publishingTopic);
+        } catch (Exception ex) {
+            log.warn("Failed to send queue metrics", ex);
+        }
+    }
+
+    private void sendMetricsForAllPartitions(
+            KafkaConsumer<String, String> consumer,
+            String topicName) {
+
+        List<PartitionInfo> partitions = consumer.partitionsFor(topicName);
+
+        if (partitions == null || partitions.isEmpty()) {
+            log.warn("[METRICS] No partitions found for topic {}", topicName);
+            return;
+        }
+
+        List<TopicPartition> topicPartitions = partitions.stream()
+                .map(p -> new TopicPartition(topicName, p.partition()))
+                .toList();
+
+        // MANUAL assignment (no group rebalance)
+        consumer.assign(topicPartitions);
+
+        log.info("[METRICS] Assigned partitions: {}", topicPartitions);
+
+        for (TopicPartition tp : topicPartitions) {
+            sendMetricForPartition(consumer, topicName, tp);
+        }
+    }
+
+    private void sendMetricForPartition(
+            KafkaConsumer<String, String> consumer,
+            String topicName,
+            TopicPartition tp) {
+
+        try {
+            // Produced offset (log end offset)
+            Map<TopicPartition, Long> endOffsets = consumer.endOffsets(Collections.singleton(tp));
+
+            long producedOffset = endOffsets.getOrDefault(tp, 0L);
+
+            // Committed offset of REAL consumer group
+            OffsetAndMetadata committed = consumer.committed(Collections.singleton(tp), Duration.ofSeconds(5))
+                    .get(tp);
+
+            long consumedOffset = committed != null ? committed.offset() : 0L;
+
+            long lag = producedOffset - consumedOffset;
+
+            QueueMetricPayload payload = QueueMetricPayload.builder()
+                    .serviceName(serviceName)
+                    .topicName(topicName)
+                    .partitionId(tp.partition())
+                    .producedOffset(producedOffset)
+                    .consumedOffset(consumedOffset)
+                    .consumerGroup(consumerGroup)
+                    .build();
+
+            rttmClient.sendQueueMetric(payload);
+
+            log.info(
+                    "[QUEUE-METRIC] topic={} partition={} produced={} consumed={} lag={}",
+                    topicName,
+                    tp.partition(),
+                    producedOffset,
+                    consumedOffset,
+                    lag);
+
+        } catch (Exception ex) {
+            log.warn(
+                    "Failed metric for topic={} partition={}",
+                    topicName,
+                    tp.partition(),
+                    ex);
+        }
     }
 }
