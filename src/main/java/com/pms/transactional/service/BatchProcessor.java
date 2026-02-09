@@ -212,6 +212,7 @@ public class BatchProcessor implements SmartLifecycle {
                    isRecovering = true;
             }   
         }
+    }
 
         MessageListenerContainer container = kafkaListenerEndpointRegistry.getListenerContainer(CONSUMER_ID);
         if (container != null && !container.isContainerPaused()) {
