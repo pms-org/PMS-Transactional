@@ -206,13 +206,11 @@ public class BatchProcessor implements SmartLifecycle {
     }
 
     public void handleConsumerThread(boolean startDaemon) {
-        synchronized (this) {
-            if (startDaemon){
-                if(isRecovering) {
-                   isRecovering = true;
-            }   
+        synchronized (this) { 
+            if (startDaemon) { 
+                if (isRecovering) return; 
+            }
         }
-    }
 
         MessageListenerContainer container = kafkaListenerEndpointRegistry.getListenerContainer(CONSUMER_ID);
         if (container != null && !container.isContainerPaused()) {
